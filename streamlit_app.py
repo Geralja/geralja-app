@@ -167,8 +167,6 @@ def finalizar_e_alinhar_layout():
             <p>v2.0 | © 2026 Todos os direitos reservados</p>
         </div>
     """, unsafe_allow_html=True)
-
 if __name__ == "__main__":
-   
-    main()
+   main()
     finalizar_e_alinhar_layout()
