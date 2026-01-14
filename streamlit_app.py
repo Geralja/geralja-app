@@ -117,21 +117,37 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
                 st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}")
 
 # ==============================================================================
-# 🏗️ CONSTRUTOR PRINCIPAL
+# 🏗️ CONSTRUTOR PRINCIPAL (ESPAÇO ELÁSTICO)
 # ==============================================================================
 def main():
+    # 1. PEÇAS FIXAS DE FUNDAÇÃO (GPS e IA)
     lat, lon = buscar_localizacao_segura()
     
-    abas = st.tabs(["💎 VITRINE", "🏪 MEU ESPAÇO"])
+    # 2. 🚀 ÁREA DE TESTE (PRIORIDADE MÁXIMA)
+    # Tudo o que estiver nesta caixa aparece PRIMEIRO para sua avaliação.
+    st.markdown("### 🧪 BLOCO EM TESTE")
+    with st.container():
+        # EXEMPLO: Se estivéssemos testando o novo Editor de 50 Créditos:
+        # modulo_editor_lojista_TESTE() 
+        st.info("Aguardando novo bloco para teste... O espaço está reservado aqui no topo.")
+    
+    st.write("---") # Divisor visual entre Teste e Fixo
+
+    # 3. 🏠 CONTEÚDO FIXO (CEDENDO ESPAÇO)
+    # Este conteúdo "desce" para dar lugar ao teste acima.
+    abas = st.tabs(["💎 VITRINE OFICIAL", "🏪 CONFIGURAÇÕES"])
     
     with abas[0]:
         st.markdown("<h1 style='text-align:center;'>GERALJÁ</h1>", unsafe_allow_html=True)
-        busca = st.text_input("", placeholder="Busque por loja ou produto...")
+        busca = st.text_input("", placeholder="Busque por loja ou produto...", key="busca_fixa")
         renderizar_vitrine_luxo(busca, lat, lon)
     
     with abas[1]:
-        st.write("Área do Lojista em Manutenção...")
+        st.write("Configurações do sistema.")
 
+# ==============================================================================
+# 🏁 O RESTO DO CÓDIGO (BANCO, IA, RODAPÉ) SEGUE IGUAL
+# ==============================================================================
 # ==============================================================================
 # 🏁 RODAPÉ E FINALIZAÇÃO
 # ==============================================================================
