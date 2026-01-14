@@ -124,6 +124,7 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
                 </div>
             """, unsafe_allow_html=True)
             # ... (Botão de contato e cobrança de 1 crédito segue igual)
+
 def modulo_editor_lojista(l_id, l_data):
     st.subheader("📸 Gerenciar Minha Vitrine")
     
