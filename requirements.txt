@@ -1,5 +1,5 @@
 firebase-admin
-pillow
-pandas
-pytz
+
+Pillow
+
 streamlit-js-eval
