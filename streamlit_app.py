@@ -3,92 +3,92 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 import json
+import datetime
+import math
+import re
+import unicodedata
+from streamlit_js_eval import streamlit_js_eval, get_geolocation
 
 # ==========================================================
-# BLOCO 0: SEGURANÇA E TRAVA (SÓ VOCÊ REMOVE OU MUDA)
+# BLOCO 0: INFRAESTRUTURA E SEGURANÇA (FIXO ✅)
 # ==========================================================
-SENHA_MESTRA = "sua_senha_aqui" # Defina sua senha
+def inicializar_sistema():
+    """Conecta ao Firebase e define as políticas globais"""
+    if not firebase_admin._apps:
+        b64_key = st.secrets["FIREBASE_BASE64"]
+        cred_dict = json.loads(base64.b64decode(b64_key).decode("utf-8"))
+        firebase_admin.initialize_app(credentials.Certificate(cred_dict))
+    return firestore.client()
 
-def modulo_travado(nome_modulo, funcao, autorizacao):
-    """Garante que funções aprovadas não sejam alteradas sem senha"""
-    if autorizacao == SENHA_MESTRA:
-        return funcao()
-    else:
-        # Se estiver aprovado, ele executa o bloco fixo
-        return funcao()
+db = inicializar_sistema()
+CHAVE_ADMIN = "mumias" # Sua senha fixa
 
 # ==========================================================
-# BLOCO 1: O MOTOR (CÉREBRO IA E GPS) - FIXADO ✅
+# BLOCO 1: O CÉREBRO (IA E GPS) - FIXO ✅
 # ==========================================================
-def motor_logica():
-    # Aqui fica sua IA Mestra e o cálculo de KM
-    # Esse bloco é a inteligência que não pode sumir
+def motor_inteligencia(texto):
+    """Sua lógica de IA que converte busca em categorias"""
+    # ... (Sua função processar_ia_avancada original aqui)
+    pass
+
+def calculo_geografico(lat1, lon1, lat2, lon2):
+    """Sua fórmula matemática de distância real"""
+    # ... (Sua função calcular_distancia_real original aqui)
     pass
 
 # ==========================================================
-# BLOCO 2: A VITRINE (A CAIXA VISUAL) - EM EDIÇÃO 🛠️
+# BLOCO 2: A VITRINE (A CAIXA VISUAL) - EM TESTE 🛠️
 # ==========================================================
-def vitrine_v2026():
-    st.markdown("""
-        <style>
-        /* Estética de Luxo Minimalista (Apple/Tesla Style) */
-        .bloco-produto {
-            background: #fff;
-            border-radius: 30px;
-            padding: 0;
-            margin-bottom: 50px;
-            border: 1px solid #f0f0f0;
-            overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
-        }
-        .tag-geralcoins {
-            background: #000;
-            color: #fff;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # Lógica de exibição por blocos de imagem...
-    st.write("Exibindo Vitrine em Blocos...")
+def modulo_vitrine_luxo(busca, raio, lat_ref, lon_ref):
+    """
+    Aqui é onde aplicamos o design de luxo. 
+    Se não gostar, mudamos apenas ESTA caixa.
+    """
+    st.markdown('<h2 style="color:#d4af37; text-align:center;">VITRINE ELITE</h2>', unsafe_allow_html=True)
+    # Lógica de exibição dos cards...
 
 # ==========================================================
-# BLOCO 3: O EDITOR (L'MAISON) - ESTRATÉGIA 50 CRÉDITOS ✅
+# BLOCO 3: COMANDO DO PARCEIRO (EDITOR) - FIXO ✅
 # ==========================================================
-def editor_lojista():
-    # Onde o lojista ganha as 50 GeralCoins por vitrine 100%
+def modulo_maison_lojista():
+    """Área de login e o bônus de 50 moedas"""
+    # ... (Sua lógica de saldo e edição de perfil)
     pass
 
 # ==========================================================
-# BLOCO 4: ADMIN (O COMANDO) ✅
+# BLOCO 4: CENTRAL SUPREMA (ADMIN) - FIXO ✅
 # ==========================================================
-def painel_admin():
-    # Controle de GeralCoins e exclusão de lojistas
+def modulo_admin_master():
+    """Acesso via senha 'mumias' para gestão total"""
+    # ... (Sua lógica de banir e creditar moedas)
     pass
 
 # ==========================================================
-# EXECUÇÃO DO SISTEMA (CONSTRUTOR)
+# CONSTRUTOR PRINCIPAL (O QUE RODA O APP)
 # ==========================================================
 def main():
-    # Carrega o esqueleto fixo
-    st.title("GERALJÁ | CORE SYSTEM")
+    # Mantém o seu tema e CSS básico para não quebrar a tela
+    st.markdown("<style>.stApp {background-color: white;}</style>", unsafe_allow_html=True)
     
-    aba1, aba2, aba3 = st.tabs(["VITRINE", "LOJISTA", "ADMIN"])
+    # Gerenciamento de Abas (As caixas fixas)
+    abas = st.tabs(["🔍 VITRINE", "🚀 ACESSO PARCEIRO", "👑 COMANDO"])
     
-    with aba1:
-        # Chama a caixa da Vitrine
-        vitrine_v2026()
+    with abas[0]:
+        # Aqui o sistema busca a localização e roda a Vitrine
+        loc = get_geolocation()
+        lat = loc['coords']['latitude'] if loc else -23.5505
+        lon = loc['coords']['longitude'] if loc else -46.6333
         
-    with aba2:
-        # Chama a caixa do Editor
-        editor_lojista()
-        
-    with aba3:
-        # Chama a caixa do Admin
-        painel_admin()
+        termo = st.text_input("O que deseja?")
+        modulo_vitrine_luxo(termo, 20, lat, lon)
+
+    with abas[1]:
+        modulo_maison_lojista()
+
+    with abas[2]:
+        senha = st.text_input("Chave Mestra", type="password")
+        if senha == CHAVE_ADMIN:
+            modulo_admin_master()
 
 if __name__ == "__main__":
     main()
