@@ -19,41 +19,106 @@ PIX_OFICIAL = "11991853488"
 BONUS_WELCOME = 50.0
 VALOR_CLIQUE = 2.00
 
-# --- ESTILIZAÇÃO INTERFACE FACEBOOK (CSS) ---
+# --- NOVO ESTILO CSS PARA VITRINE CHIQUE ---
 st.markdown("""
     <style>
-    .stApp { background-color: #f0f2f5; }
-    .fb-card {
+    .vitrine-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        justify-content: center;
+    }
+    .product-card {
         background: white;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        border: 1px solid #ddd;
+        border-radius: 15px;
+        overflow: hidden;
+        width: 300px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        transition: transform 0.3s ease;
+        border: 1px solid #f0f0f0;
     }
-    .pro-name { color: #1c1e21; font-weight: bold; font-size: 1.2rem; }
-    .verified-badge { color: #1877f2; margin-left: 5px; }
-    .service-tag { 
-        background: #e7f3ff; color: #1877f2; 
-        padding: 4px 10px; border-radius: 5px; 
-        font-size: 0.85rem; font-weight: 600;
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.1);
     }
-    /* Estilização dos Botões */
-    div.stButton > button {
+    .product-image {
         width: 100%;
-        background-color: #1877f2;
-        color: white;
-        border-radius: 6px;
-        border: none;
-        height: 45px;
-        font-weight: bold;
+        height: 200px;
+        background: #f8f9fa; /* Cor de fundo se não tiver imagem */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
     }
-    div.stButton > button:hover {
-        background-color: #166fe5;
-        color: white;
+    .product-info {
+        padding: 15px;
+    }
+    .product-price {
+        color: #1a1a1a;
+        font-size: 1.4rem;
+        font-weight: 800;
+        margin: 5px 0;
+    }
+    .product-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #444;
+        margin-bottom: 5px;
+    }
+    .merchant-badge {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #1877f2;
+        font-weight: bold;
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- LÓGICA DA VITRINE (DENTRO DA ABA 1) ---
+with abas[0]:
+    st.markdown("<h2 style='text-align: center; color: #1a1a1a;'>🛍️ Vitrine de Ofertas</h2>", unsafe_allow_html=True)
+    
+    # Barra de busca estilizada
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        busca = st.text_input("🔍 O que você deseja comprar hoje?", placeholder="Ex: iPhone, Pizza, Cadeira...")
+
+    # Grid de Produtos
+    cols_vitrine = st.columns(3)
+    pros_ref = db.collection("profissionais").where("saldo", ">", 0).stream()
+
+    for i, doc in enumerate(pros_ref):
+        p = doc.to_dict()
+        pid = doc.id
+        
+        # Dados do Produto/Comerciante
+        nome_loja = p.get('nome', 'Loja Parceira')
+        produto_nome = p.get('servico', 'Produto Premium') # Aqui o comerciante coloca o nome do produto
+        preco = p.get('preco', 'Consulte') # Adicionei campo de preço
+        
+        # Layout em Colunas (3 por linha)
+        with cols_vitrine[i % 3]:
+            st.markdown(f"""
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="https://via.placeholder.com/300x200?text={produto_nome.replace(' ', '+')}" style="width:100%">
+                    </div>
+                    <div class="product-info">
+                        <span class="merchant-badge">⭐ {nome_loja}</span>
+                        <div class="product-title">{produto_nome}</div>
+                        <div class="product-price">R$ {preco}</div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Botão de Compra/Contato Integrado
+            if st.button(f"🛍️ Tenho Interesse", key=f"buy_{pid}", use_container_width=True):
+                if p.get('saldo', 0) >= 2.0:
+                    novo_saldo = p.get('saldo') - 2.0
+                    db.collection("profissionais").document(pid).update({"saldo": novo_saldo})
+                    st.success(f"Fale com a loja: {p.get('whatsapp')}")
+                    st.link_button("Chamar no WhatsApp", f"https://wa.me/{p.get('whatsapp')}?text=Vi+seu+produto+{produto_nome}+no+GeralJá")
 
 # --- INICIALIZAÇÃO FIREBASE ---
 if not firebase_admin._apps:
