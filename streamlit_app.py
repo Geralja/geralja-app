@@ -29,6 +29,15 @@ st.markdown("""
         background: radial-gradient(circle at top, #1a1a1a 0%, #000000 100%);
         color: #e0e0e0;
     }
+# ------------------------------------------------------------------------------
+# 4. FUNÇÕES AUXILIARES
+# ------------------------------------------------------------------------------
+def registrar_clique(pro_id, saldo_atual):
+    if saldo_atual >= VALOR_CLIQUE:
+        novo_saldo = saldo_atual - VALOR_CLIQUE
+        db.collection("profissionais").document(pro_id).update({"saldo": novo_saldo})
+        return True
+    return False
 
     /* Título Estilo Joalheria */
     .brand-title {
