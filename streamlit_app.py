@@ -240,48 +240,6 @@ with col_central:
         
         # Painel ADM (fica escondido no final ou na lateral)
         painel_adm_arquiteto()
-def main():
-    lat, lon = buscar_localizacao_segura()
-
-    st.markdown("""
-        <style>
-        .bloco-modular { background-color: #ffffff; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f0f2f5; }
-        .stApp { background-color: #f0f2f5; }
-        [data-testid="stHeader"] {background: rgba(0,0,0,0);}
-        </style>
-    """, unsafe_allow_html=True)
-
-    col_lateral, col_central = st.columns([1, 2.5])
-
-    # --- COLUNA LATERAL (MENU) ---
-    with col_lateral:
-        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        st.markdown("### 🧭 Menu")
-        st.button("🏠 Home Timeline", use_container_width=True)
-        st.button("📊 Meu Desempenho", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        st.caption("🛡️ SEGURANÇA")
-        st.success("Antivírus de Dados Ativo")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- COLUNA CENTRAL (CONTEÚDO) ---
-    with col_central:
-        # 1. Capa Fixa
-        renderizar_capa_fixa()
-
-        # 2. Canteiro de Obras (Espaço Azul)
-        st.markdown('<div class="bloco-modular" style="border-left: 5px solid #007bff;">', unsafe_allow_html=True)
-        modulo_gestao_lojista()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # 3. Vitrine
-        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        busca = st.text_input("", placeholder="O que você procura hoje?", key="busca_timeline")
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        renderizar_vitrine_luxo(busca, lat, lon)
 
 # ==============================================================================
 # 🏁 RODAPÉ E INICIALIZAÇÃO
