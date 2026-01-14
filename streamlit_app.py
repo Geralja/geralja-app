@@ -3,11 +3,30 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 import json
+import datetime
 import math
+import re
+import pandas as pd
 import unicodedata
-from datetime import datetime
-from streamlit_js_eval import get_geolocation
 
+# --- BLOCO DE SEGURANÇA: ANTIVÍRUS DE IMPORTAÇÃO (FIXO ✅) ---
+# Se a biblioteca não estiver instalada, o site NÃO TRAVA mais.
+try:
+    from streamlit_js_eval import get_geolocation
+    GPS_DISPONIVEL = True
+except (ImportError, ModuleNotFoundError):
+    GPS_DISPONIVEL = False
+
+def buscar_localizacao_segura():
+    """Tenta pegar o GPS. Se falhar, usa a capital (SP) para não dar erro."""
+    if GPS_DISPONIVEL:
+        try:
+            loc = get_geolocation()
+            if loc and 'coords' in loc:
+                return loc['coords']['latitude'], loc['coords']['longitude']
+        except:
+            pass
+    return -23.5505, -46.6333 # Localização de emergência para manter o site vivo
 # 1. CONFIGURAÇÃO DE TELA (FIXO ✅)
 st.set_page_config(page_title="GeralJá | Sistema de Elite", layout="wide")
 
@@ -20,6 +39,27 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
     except: pass
 db = firestore.client()
+# Tenta importar, se falhar, o sistema avisa mas não trava o Rodapé
+try:
+    from streamlit_js_eval import get_geolocation
+    GPS_DISPONIVEL = True
+except ImportError:
+    GPS_DISPONIVEL = False
+
+def buscar_localizacao_segura():
+    """Bloco de GPS com Antivírus de Erro"""
+    if GPS_DISPONIVEL:
+        try:
+            loc = get_geolocation()
+            if loc and 'coords' in loc:
+                return loc['coords']['latitude'], loc['coords']['longitude']
+        except:
+            pass
+    # Localização padrão (São Paulo) caso o GPS falhe ou não esteja instalado
+    return -23.5505, -46.6333 
+
+# No seu main(), você usará assim:
+lat, lon = buscar_localizacao_segura()
 
 # ==============================================================================
 # 🧠 BLOCO 1: O MOTOR DE INTELIGÊNCIA (O CÉREBRO - FIXO ✅)
