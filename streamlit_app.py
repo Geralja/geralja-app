@@ -17,196 +17,166 @@ import pytz
 import requests
 from urllib.parse import quote
 
-# Tentativa de importação para GPS (se configurado no seu ambiente)
-try:
-    from streamlit_js_eval import get_geolocation
-except ImportError:
-    get_geolocation = None
+# --- CONFIGURAÇÃO ---
+st.set_page_config(page_title="GeralJá | Vitrine Hub", layout="wide")
 
-# ------------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO DE TELA E CSS (VISUAL "XIQUE")
-# ------------------------------------------------------------------------------
-st.set_page_config(page_title="GeralJá | Vitrine Pro", page_icon="🛍️", layout="wide")
-
+# CSS PREMIUM: Cores Profissionais e Efeito de Rolagem
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-    * { font-family: 'Inter', sans-serif; }
-    .stApp { background-color: #f0f2f5; }
-    
-    /* Header Estilo Facebook */
-    .header-fb { 
-        background: white; padding: 20px; border-radius: 0 0 15px 15px; 
-        text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 20px; border-bottom: 5px solid #1877f2;
+    .stApp { background-color: #f8f9fa; }
+    .vitrine-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 15px;
+        padding: 10px 0;
+        scrollbar-width: thin;
     }
-
-    /* Card de Vitrine Chique */
-    .product-card {
-        background: white; border-radius: 12px; overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: 0.3s;
-        border: 1px solid #ddd; margin-bottom: 20px;
+    .post-card {
+        min-width: 250px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
     }
-    .product-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
-    
-    .product-img { width: 100%; height: 220px; object-fit: cover; background: #f8f9fa; }
-    
-    .product-info { padding: 18px; }
-    .price-tag { color: #1c1e21; font-size: 1.4rem; font-weight: 800; margin: 8px 0; }
-    .store-name { color: #1877f2; font-size: 0.9rem; font-weight: bold; text-transform: uppercase; }
-    
-    /* Botão Zap */
-    .btn-zap {
-        background-color: #25D366; color: white !important;
-        padding: 12px; border-radius: 8px; text-align: center;
-        font-weight: bold; text-decoration: none; display: block;
-        margin-top: 10px;
+    .coin-badge {
+        background: linear-gradient(90deg, #FFD700, #FFA500);
+        color: #000;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 0.8rem;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ------------------------------------------------------------------------------
-# 2. CONEXÃO FIREBASE (SECRET BASE64)
-# ------------------------------------------------------------------------------
+# --- FIREBASE SETUP ---
 if not firebase_admin._apps:
-    try:
-        # Pega a chave do Streamlit Secrets (deve estar em base64)
-        b64_key = st.secrets["FIREBASE_BASE64"]
-        cred_dict = json.loads(base64.b64decode(b64_key).decode("utf-8"))
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
-    except Exception as e:
-        st.error(f"Erro de Conexão: {e}")
-        st.stop()
-
+    b64_key = st.secrets["FIREBASE_BASE64"]
+    cred_dict = json.loads(base64.b64decode(b64_key).decode("utf-8"))
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# ------------------------------------------------------------------------------
-# 3. IA MESTRA E FUNÇÕES DE LÓGICA
-# ------------------------------------------------------------------------------
-BONUS_WELCOME = 50.0
-VALOR_CLIQUE = 2.0
+# --- HEADER ---
+st.markdown("<div style='text-align:center'><h1>⚡ GERALJÁ</h1><p>Vitrine Social & Marketplace</p></div>", unsafe_allow_html=True)
 
-def processar_ia_mestra(texto):
-    """IA que entende o que o usuário quer e mapeia categorias."""
-    t = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower()
-    mapa = {
-        "pizza": "Pizzaria", "hamburguer": "Lanchonete", "lanche": "Lanchonete",
-        "carro": "Mecânico", "oficina": "Mecânico", "luz": "Eletricista",
-        "celular": "Informática", "pc": "Informática", "roupa": "Moda"
-    }
-    for chave, cat in mapa.items():
-        if chave in t: return cat
-    return None
-
-def calcular_distancia(lat1, lon1, lat2, lon2):
-    if None in [lat1, lon1, lat2, lon2]: return 999
-    R = 6371 # Raio da Terra em KM
-    dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-    return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
+menu = st.tabs(["🔍 BUSCAR", "🏪 MINHA VITRINE", "👑 ADMIN"])
 
 # ------------------------------------------------------------------------------
-# 4. INTERFACE E NAVEGAÇÃO
+# ABA 1: BUSCA (VITRINE DE ROLAGEM)
 # ------------------------------------------------------------------------------
-st.markdown('<div class="header-fb"><h1>GERALJÁ</h1><p>A sua vitrine inteligente</p></div>', unsafe_allow_html=True)
-
-menu_abas = st.tabs(["🛍️ VITRINE", "🚀 ANUNCIAR", "💰 MEU SALDO", "👑 ADMIN"])
-
-# --- LOCALIZAÇÃO DO USUÁRIO ---
-user_loc = {"lat": -23.5505, "lon": -46.6333} # Padrão SP
-if get_geolocation:
-    loc = get_geolocation()
-    if loc:
-        user_loc["lat"] = loc['coords']['latitude']
-        user_loc["lon"] = loc['coords']['longitude']
-
-# --- ABA 1: VITRINE (O SHOPPING) ---
-with menu_abas[0]:
-    c1, c2 = st.columns([3, 1])
-    busca = c1.text_input("O que você precisa agora?", placeholder="Ex: Pizza, Consertar PC...")
-    raio_km = c2.selectbox("Distância", [5, 10, 20, 50, 100], index=1)
-
-    # A QUERY QUE PRECISAVA DO ÍNDICE:
-    profs_ref = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">", 0).stream()
+with menu[0]:
+    busca = st.text_input("Encontre uma loja ou produto...", placeholder="Ex: Adega do Jhow")
     
-    col_grid = st.columns(3)
-    idx = 0
-    
-    for doc in profs_ref:
-        p = doc.to_dict()
-        pid = doc.id
-        dist = calcular_distancia(user_loc["lat"], user_loc["lon"], p.get('lat'), p.get('lon'))
-        
-        # Filtro de Distância
-        if dist > raio_km: continue
-        
-        # Filtro de Busca com IA
-        cat_ia = processar_ia_mestra(busca)
-        if busca and not (busca.lower() in p.get('nome','').lower() or (cat_ia and cat_ia == p.get('area'))):
-            continue
+    if busca:
+        # Se buscar por uma loja específica, mostra o feed dela
+        lojas = db.collection("profissionais").where("nome", "==", busca).stream()
+    else:
+        # Feed geral (quem tem saldo)
+        lojas = db.collection("profissionais").where("saldo", ">=", 1).stream()
 
-        # Renderização do Card Chique
-        with col_grid[idx % 3]:
-            img_data = f"data:image/png;base64,{p.get('foto_b64')}" if p.get('foto_b64') else "https://via.placeholder.com/400x300?text=GeralJá"
+    for loja in lojas:
+        l_data = loja.to_dict()
+        st.markdown(f"### {l_data.get('nome')} ✔️")
+        
+        # VITRINE DE ROLAGEM (Simulação com colunas ou HTML)
+        posts_ref = db.collection("profissionais").document(loja.id).collection("posts").where("ativo", "==", True).stream()
+        
+        posts = list(posts_ref)
+        if posts:
+            cols = st.columns(len(posts) if len(posts) < 4 else 4)
+            for i, p_doc in enumerate(posts):
+                p = p_doc.to_dict()
+                with cols[i % 4]:
+                    img = f"data:image/png;base64,{p.get('foto')}" if p.get('foto') else "https://via.placeholder.com/300"
+                    st.markdown(f"""
+                        <div class="post-card">
+                            <img src="{img}" style="width:100%; border-radius:15px 15px 0 0;">
+                            <div style="padding:10px;">
+                                <small>{p.get('categoria')}</small>
+                                <div style="font-weight:bold;">{p.get('titulo')}</div>
+                                <div style="color:#1877f2; font-size:1.2rem;">R$ {p.get('preco')}</div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
             
-            st.markdown(f"""
-                <div class="product-card">
-                    <img src="{img_data}" class="product-img">
-                    <div class="product-info">
-                        <span class="store-name">{p.get('nome')} ✔</span>
-                        <div style="font-weight:600; font-size: 1.1rem; min-height: 50px;">{p.get('servico') or p.get('area')}</div>
-                        <div class="price-tag">R$ {p.get('preco', '0,00')}</div>
-                        <p style="font-size:0.8rem; color:#65676b;">📍 a {dist} km de você</p>
+            # Botão de Ação Único por Loja
+            if st.button(f"📞 Contatar {l_data.get('nome')}", key=f"contact_{loja.id}"):
+                if l_data.get('saldo', 0) >= 1:
+                    db.collection("profissionais").document(loja.id).update({"saldo": l_data.get('saldo') - 1})
+                    st.success(f"WhatsApp: {l_data.get('whatsapp')}")
+                else:
+                    st.error("Loja temporariamente sem GeralCoins para atendimento.")
+
+# ------------------------------------------------------------------------------
+# ABA 2: MINHA VITRINE (O EDITOR DO LOJISTA)
+# ------------------------------------------------------------------------------
+with menu[1]:
+    st.subheader("🏪 Painel do Lojista")
+    id_loja = st.text_input("Seu WhatsApp (Login)", type="password")
+    
+    if id_loja:
+        doc_ref = db.collection("profissionais").document(id_loja)
+        loja_doc = doc_ref.get()
+        
+        if loja_doc.exists:
+            l = loja_doc.to_dict()
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                st.markdown(f"""
+                    <div style="background:white; padding:20px; border-radius:15px; border-left: 5px solid #FFD700">
+                        <p>Meu Saldo</p>
+                        <h2>{l.get('saldo', 0)} <span style="font-size:1rem">GeralCoins</span></h2>
                     </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button(f"Falar com {p.get('nome').split()[0]}", key=f"btn_{pid}"):
-                # Sistema de Cobrança por Clique
-                novo_saldo = p.get('saldo', 0) - VALOR_CLIQUE
-                db.collection("profissionais").document(pid).update({"saldo": novo_saldo, "cliques": p.get('cliques', 0) + 1})
-                st.success(f"WhatsApp: {p.get('whatsapp')}")
-                st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{p.get('whatsapp')}?text=Vi+seu+anuncio+no+GeralJa")
-        
-        idx += 1
+                """, unsafe_allow_html=True)
+                
+                if st.button("🚀 Turbinar Vitrine"):
+                    st.info(f"PIX para recarga: {st.secrets.get('PIX', '11991853488')}")
 
-# --- ABA 2: CADASTRO COM FOTO ---
-with menu_abas[1]:
-    st.header("Anuncie na Vitrine")
-    with st.form("cad_loja"):
-        c_nome = st.text_input("Nome do Comércio/Profissional")
-        c_zap = st.text_input("WhatsApp (apenas números)")
-        c_area = st.selectbox("Categoria", ["Pizzaria", "Mecânico", "Informática", "Moda", "Outros"])
-        c_serv = st.text_input("Título do Anúncio (Ex: Pizza Grande 2 Sabores)")
-        c_preco = st.text_input("Preço")
-        c_foto = st.file_uploader("Foto do Produto/Serviço", type=["jpg", "png"])
-        
-        if st.form_submit_button("PUBLICAR AGORA"):
-            foto_b64 = base64.b64encode(c_foto.read()).decode() if c_foto else ""
-            dados = {
-                "nome": c_nome, "whatsapp": c_zap, "area": c_area, "servico": c_serv,
-                "preco": c_preco, "foto_b64": foto_b64, "saldo": BONUS_WELCOME,
-                "aprovado": True, "verificado": True, "cliques": 0,
-                "lat": user_loc["lat"], "lon": user_loc["lon"], "data": datetime.now()
-            }
-            db.collection("profissionais").document(c_zap).set(dados)
-            st.balloons()
-            st.success("Publicado com sucesso! Você ganhou R$ 50 de bônus.")
+            with col2:
+                st.markdown("### 📸 Novo Post (Produto/Serviço)")
+                with st.expander("Criar Postagem Chique"):
+                    with st.form("novo_post"):
+                        t_post = st.text_input("Título do Produto")
+                        p_post = st.text_input("Preço")
+                        cat_post = st.selectbox("Categoria", ["Promoção", "Lançamento", "Mais Vendido"])
+                        f_post = st.file_uploader("Foto do Produto")
+                        
+                        if st.form_submit_button("Publicar na Vitrine"):
+                            foto_b64 = base64.b64encode(f_post.read()).decode() if f_post else ""
+                            # Adiciona o post na sub-coleção da loja
+                            doc_ref.collection("posts").add({
+                                "titulo": t_post,
+                                "preco": p_post,
+                                "categoria": cat_post,
+                                "foto": foto_b64,
+                                "ativo": True,
+                                "data": datetime.now()
+                            })
+                            st.success("Postagem ativada!")
+        else:
+            # Fluxo de Primeiro Cadastro
+            st.warning("Loja não encontrada. Cadastre-se agora!")
+            with st.form("primeiro_cad"):
+                n_loja = st.text_input("Nome da Loja")
+                z_loja = st.text_input("WhatsApp (Será seu Login)")
+                if st.form_submit_button("Criar Minha Vitrine Grátis"):
+                    # Ganha 50 GeralCoins ao cadastrar
+                    doc_ref = db.collection("profissionais").document(z_loja)
+                    doc_ref.set({
+                        "nome": n_loja,
+                        "whatsapp": z_loja,
+                        "saldo": 50, # Bônus inicial!
+                        "aprovado": True
+                    })
+                    st.balloons()
+                    st.rerun()
 
-# --- ABA 4: ADMIN (O SEU CONTROLE) ---
-with menu_abas[3]:
-    adm_key = st.text_input("Chave Mestra", type="password")
-    if adm_key == "mumias":
-        st.write("### Gestão Geral")
-        docs = db.collection("profissionais").stream()
-        for d in docs:
-            val = d.to_dict()
-            col1, col2, col3 = st.columns([2, 1, 1])
-            col1.write(f"**{val.get('nome')}** (R$ {val.get('saldo')})")
-            if col2.button("+10", key=f"add_{d.id}"):
-                db.collection("profissionais").document(d.id).update({"saldo": val.get('saldo',0)+10})
-                st.rerun()
-            if col3.button("DEL", key=f"del_{d.id}"):
-                db.collection("profissionais").document(d.id).delete()
-                st.rerun()
+# ------------------------------------------------------------------------------
+# ABA 3: ADMIN (MUMIAS)
+# ------------------------------------------------------------------------------
+with menu[2]:
+    if st.text_input("Mestra", type="password") == "mumias":
+        st.write("Gerenciamento de GeralCoins")
+        # Lista todas as lojas para o admin dar créditos ou deletar
