@@ -2,31 +2,31 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
-import re
-import time
 import json
 import math
+import re
+import time
 from PIL import Image
 import io
 
-# Tenta importar o GPS, se falhar, o app avisa
+# --- TENTA IMPORTAR GPS (Requisito para Turbinar) ---
 try:
     from streamlit_js_eval import get_geolocation
 except ImportError:
     pass
 
 # ==============================================================================
-# 1. MOTOR IA MESTRE (Otimização de Fotos e IDs)
+# 1. MOTOR IA MESTRE (Otimização de Imagem e Dados)
 # ==============================================================================
 class IAMestre:
     @staticmethod
     def otimizar_imagem(file):
-        """Reduz a foto para não travar o banco de dados (Max 1MB)"""
+        """Turbina o carregamento: reduz fotos para JPEG leve e alta qualidade"""
         if file is None: return None
         try:
             img = Image.open(file)
             if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-            img.thumbnail((700, 700)) # Resolução ideal
+            img.thumbnail((700, 700))
             buffer = io.BytesIO()
             img.save(buffer, format="JPEG", quality=60, optimize=True)
             return base64.b64encode(buffer.getvalue()).decode()
@@ -37,18 +37,19 @@ class IAMestre:
         return re.sub(r'\D', '', str(texto or ""))
 
     @staticmethod
-    def calc_distancia(lat1, lon1, lat2, lon2):
-        """Cálculo de distância em KM"""
+    def calcular_distancia(lat1, lon1, lat2, lon2):
+        """Cálculo matemático real de proximidade"""
         if not all([lat1, lon1, lat2, lon2]): return 999
-        R = 6371 
-        dLat, dLon = math.radians(lat2-lat1), math.radians(lon2-lon1)
-        a = math.sin(dLat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dLon/2)**2
+        R = 6371 # Raio da Terra em KM
+        dLat = math.radians(lat2 - lat1)
+        dLon = math.radians(lon2 - lon1)
+        a = math.sin(dLat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dLon/2)**2
         return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
 
 # ==============================================================================
-# 2. CONEXÃO FIREBASE (Protegida por Secrets)
+# 2. CONEXÃO FIREBASE E CONFIGURAÇÕES
 # ==============================================================================
-st.set_page_config(page_title="GeralJá v2.0", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="GeralJá IA", layout="wide", page_icon="🇧🇷")
 
 if not firebase_admin._apps:
     try:
@@ -56,95 +57,154 @@ if not firebase_admin._apps:
         cred = credentials.Certificate(cred_info)
         firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.error("⚠️ Configure o 'textkey' nos Secrets do Streamlit.")
+        st.error("⚠️ Conecte o Firebase nos Secrets.")
 
 db = firestore.client()
+CATEGORIAS = ["Eletricista", "Encanador", "Diarista", "Pintor", "Mecânico", "Pedreiro", "Outros"]
 
 # ==============================================================================
-# 3. INTERFACE EM ABAS
+# 3. INTERFACE PRINCIPAL (TURBINADA)
 # ==============================================================================
-st.title("🚀 GeralJá - Inteligência em Serviços")
-abas = st.tabs(["🔍 BUSCAR", "📢 CADASTRAR", "👤 MEU PERFIL", "⚙️ ADMIN"])
+st.title("🚀 GeralJá - Criando Soluções")
+menu = st.tabs(["🔍 BUSCAR", "📢 CADASTRAR", "👤 MEU PERFIL", "⚙️ ADMIN"])
 
-# --- ABA 1: BUSCAR ---
-with abas[0]:
-    st.subheader("Encontre Profissionais")
-    loc_cliente = get_geolocation() # Pede GPS do cliente
+# ------------------------------------------------------------------------------
+# ABA 1: BUSCAR (Inteligência por GPS e Saldo)
+# ------------------------------------------------------------------------------
+with menu[0]:
+    st.markdown("### 🔍 Profissionais Perto de Você")
+    loc_cliente = get_geolocation() if 'streamlit_js_eval' in globals() else None
     
-    col_b1, col_b2 = st.columns([3, 1])
-    busca_term = col_b1.text_input("O que você procura?", placeholder="Ex: Eletricista...")
-    raio_km = col_b2.slider("Raio (KM)", 1, 100, 20)
+    col_s1, col_s2 = st.columns([3, 1])
+    busca = col_s1.text_input("O que você precisa?", placeholder="Ex: Pintor rápido...")
+    raio = col_s2.slider("Raio (km)", 1, 100, 15)
 
     if loc_cliente:
-        lat_c, lon_c = loc_cliente['coords']['latitude'], loc_cliente['coords']['longitude']
+        lat_c = loc_cliente['coords']['latitude']
+        lon_c = loc_cliente['coords']['longitude']
+        
+        # Busca no Banco
         profs = db.collection("profissionais").stream()
-        lista_rank = []
+        lista_ranking = []
 
         for p in profs:
             d = p.to_dict()
-            dist = IAMestre.calc_distancia(lat_c, lon_c, d.get('lat'), d.get('lon'))
-            if dist <= raio_km:
-                d['dist_p'] = round(dist, 1)
-                # Ranking: Saldo (Moedas) faz subir, Distância faz descer
-                d['score'] = (d.get('saldo', 0) * 10) - dist
-                lista_rank.append(d)
+            dist = IAMestre.calcular_distancia(lat_c, lon_c, d.get('lat'), d.get('lon'))
+            
+            if dist <= raio:
+                d['dist_real'] = round(dist, 1)
+                # O PULO DO GATO: Score = (Saldo * 5) - (Distância)
+                # Isso faz quem paga aparecer no topo, mas prioriza quem está perto
+                d['score'] = (d.get('saldo', 0) * 5) - dist
+                lista_ranking.append(d)
 
-        lista_rank = sorted(lista_rank, key=lambda x: x['score'], reverse=True)
+        lista_ranking = sorted(lista_ranking, key=lambda x: x['score'], reverse=True)
 
-        for item in lista_rank:
+        for item in lista_ranking:
             with st.container(border=True):
-                c1, c2 = st.columns([1, 4])
-                with c1:
-                    if item.get('f1'): st.image(f"data:image/jpeg;base64,{item['f1']}")
-                with c2:
-                    st.write(f"### {item['nome']}")
-                    st.caption(f"📍 {item['dist_p']} km de você • {item['area']}")
-                    st.write(item.get('descricao', '')[:150])
-                    st.link_button(f"Falar com {item['nome']}", f"https://wa.me/55{item['telefone']}")
+                c_img, c_txt = st.columns([1, 4])
+                with c_img:
+                    if item.get('f1'):
+                        st.image(f"data:image/jpeg;base64,{item['f1']}", use_container_width=True)
+                with c_txt:
+                    st.subheader(f"{item['nome']}")
+                    st.caption(f"📍 {item['dist_real']} km de distância • {item['area']}")
+                    st.write(item.get('descricao', '')[:120] + "...")
+                    if st.button(f"Falar com {item['nome']}", key=f"chat_{item['telefone']}"):
+                        # Incrementa clique e abre zap
+                        db.collection("profissionais").document(item['telefone']).update({"cliques": firestore.Increment(1)})
+                        st.markdown(f'<meta http-equiv="refresh" content="0;URL=https://wa.me/55{item["telefone"]}">', unsafe_allow_html=True)
     else:
-        st.info("📍 Por favor, ative o GPS para ver quem está perto de você.")
+        st.warning("📍 Ative o GPS para ver os melhores profissionais da sua região.")
 
-# --- ABA 2: CADASTRAR (4 FOTOS + GPS) ---
-with abas[1]:
-    st.subheader("Criar seu Perfil Profissional")
-    loc_cad = get_geolocation() # Pede GPS do profissional
+# ------------------------------------------------------------------------------
+# ABA 2: CADASTRAR (Captura GPS e 4 Fotos)
+# ------------------------------------------------------------------------------
+with menu[1]:
+    st.subheader("📢 Divulgue seu trabalho")
+    st.info("📍 Sua localização será capturada para clientes te acharem.")
+    loc_cad = get_geolocation()
     
-    with st.form("cad_prof"):
+    with st.form("form_novo_parceiro"):
         c1, c2 = st.columns(2)
         n_nome = c1.text_input("Nome/Empresa")
-        n_zap = c1.text_input("WhatsApp")
-        n_area = c2.selectbox("Área", ["Eletricista", "Encanador", "Limpeza", "Outros"])
-        n_pass = c2.text_input("Senha", type="password")
-        n_desc = st.text_area("Sua Descrição")
+        n_zap = c1.text_input("WhatsApp (Seu Login)")
+        n_area = c2.selectbox("Especialidade", CATEGORIAS)
+        n_pass = c2.text_input("Crie uma Senha", type="password")
+        n_desc = st.text_area("Descrição do seu Serviço")
         
-        st.write("📷 **Fotos da sua Vitrine**")
-        f_c1, f_c2 = st.columns(2)
-        u1 = f_c1.file_uploader("Foto 1", type=['jpg','png'])
-        u2 = f_c1.file_uploader("Foto 2", type=['jpg','png'])
-        u3 = f_c2.file_uploader("Foto 3", type=['jpg','png'])
-        u4 = f_c2.file_uploader("Foto 4", type=['jpg','png'])
-
-        if st.form_submit_button("CRIAR VITRINE"):
+        st.write("📸 **Sua Vitrine (Até 4 fotos)**")
+        fc1, fc2 = st.columns(2)
+        up1 = fc1.file_uploader("Foto 1 (Destaque)", type=['jpg','png','jpeg'])
+        up2 = fc1.file_uploader("Foto 2", type=['jpg','png','jpeg'])
+        up3 = fc2.file_uploader("Foto 3", type=['jpg','png','jpeg'])
+        up4 = fc2.file_uploader("Foto 4", type=['jpg','png','jpeg'])
+        
+        if st.form_submit_button("🚀 CRIAR MINHA VITRINE"):
             uid = IAMestre.limpar_id(n_zap)
-            if not loc_cad: st.error("Erro: GPS desligado!")
-            elif not uid or not n_pass: st.warning("Preencha WhatsApp e Senha!")
+            if not loc_cad: st.error("Ative o GPS para cadastrar!")
+            elif not uid or not n_pass: st.warning("WhatsApp e Senha obrigatórios!")
             else:
-                with st.spinner("IA Mestre salvando..."):
+                with st.spinner("IA Mestre processando fotos..."):
                     dados = {
-                        "nome": n_nome, "telefone": uid, "area": n_area, "senha": n_pass,
-                        "descricao": n_desc, "saldo": 0,
-                        "lat": loc_cad['coords']['latitude'], "lon": loc_cad['coords']['longitude'],
-                        "f1": IAMestre.otimizar_imagem(u1), "f2": IAMestre.otimizar_imagem(u2),
-                        "f3": IAMestre.otimizar_imagem(u3), "f4": IAMestre.otimizar_imagem(u4),
+                        "nome": n_nome.upper(),
+                        "telefone": uid,
+                        "area": n_area,
+                        "senha": n_pass,
+                        "descricao": n_desc,
+                        "lat": loc_cad['coords']['latitude'],
+                        "lon": loc_cad['coords']['longitude'],
+                        "saldo": 0, "cliques": 0,
+                        "f1": IAMestre.otimizar_imagem(up1), "f2": IAMestre.otimizar_imagem(up2),
+                        "f3": IAMestre.otimizar_imagem(up3), "f4": IAMestre.otimizar_imagem(up4),
                     }
                     db.collection("profissionais").document(uid).set(dados)
-                    st.success("✅ Cadastrado com sucesso!")
+                    st.success("✅ Perfil criado! Faça login na aba 'Meu Perfil'.")
 
-# --- ABA 3 E 4 (LOGS E ADMIN) ---
-with abas[2]: # Perfil
-    st.write("Em breve: Painel de Edição")
+# ------------------------------------------------------------------------------
+# ABA 3: MEU PERFIL (Visualização e Edição)
+# ------------------------------------------------------------------------------
+with menu[2]:
+    if 'auth' not in st.session_state: st.session_state.auth = False
+    
+    if not st.session_state.auth:
+        with st.container(border=True):
+            st.subheader("🔑 Login do Parceiro")
+            l_zap = st.text_input("WhatsApp", key="l_zap")
+            l_pw = st.text_input("Senha", type="password", key="l_pw")
+            if st.button("ENTRAR"):
+                u_id = IAMestre.limpar_id(l_zap)
+                doc = db.collection("profissionais").document(u_id).get()
+                if doc.exists and str(doc.to_dict().get('senha')) == l_pw:
+                    st.session_state.auth = True
+                    st.session_state.u_id = u_id
+                    st.rerun()
+                else: st.error("Acesso Negado.")
+    else:
+        # Área Logada
+        d = db.collection("profissionais").document(st.session_state.u_id).get().to_dict()
+        st.header(f"Olá, {d.get('nome')}!")
+        
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("Meu Saldo", f"{d.get('saldo')} 🪙")
+        col_m2.metric("Cliques Recebidos", d.get('cliques'))
+        col_m3.metric("Status", "Ativo")
 
-with abas[3]: # Admin
-    adm_pw = st.text_input("Admin", type="password")
+        if st.button("🚪 SAIR"):
+            st.session_state.auth = False
+            st.rerun()
+
+# ------------------------------------------------------------------------------
+# ABA 4: ADMIN (Controle Geral)
+# ------------------------------------------------------------------------------
+with menu[3]:
+    st.subheader("⚙️ Painel de Controle")
+    adm_pw = st.text_input("Chave Mestra", type="password")
     if adm_pw == "admin123":
-        st.write("Controle de Moedas Ativo")
+        profs_all = db.collection("profissionais").stream()
+        for p in profs_all:
+            dados_p = p.to_dict()
+            with st.expander(f"{dados_p.get('nome')} - {dados_p.get('saldo')} 🪙"):
+                if st.button(f"Dar 50 Moedas para {dados_p.get('nome')}", key=f"coin_{dados_p.get('telefone')}"):
+                    db.collection("profissionais").document(dados_p.get('telefone')).update({"saldo": firestore.Increment(50)})
+                    st.rerun()
