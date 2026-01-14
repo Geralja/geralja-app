@@ -75,7 +75,16 @@ with menu[0]:
                 col1, col2 = st.columns([1, 2])
                 with col1:
                     # Busca último post desse profissional
-                    posts = db.collection("postagens").where("zap_prof", "==", p['id']).order_by("data", direction=firestore.Query.DESCENDING).limit(1).get()
+                  # Busca posts do profissional sem ordenar no Firebase (evita erro de índice)
+posts_query = db.collection("postagens").where("zap_prof", "==", p['id']).limit(5).get()
+
+if posts_query:
+    # Ordena manualmente no Python pela data
+    lista_posts = [doc.to_dict() for doc in posts_query]
+    lista_posts.sort(key=lambda x: x.get('data', ''), reverse=True)
+    st.image(f"data:image/jpeg;base64,{lista_posts[0]['foto']}", use_container_width=True)
+else:
+    st.write("📸 *Sem fotos postadas*")
                     if posts:
                         st.image(f"data:image/jpeg;base64,{posts[0].to_dict()['foto']}", use_container_width=True)
                     else:
