@@ -83,21 +83,77 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
 # ==============================================================================
 # 🛠️ BLOCO EM TESTE: CONSTRUTOR DE FUNÇÕES
 # ==============================================================================
-def main():
-    # Localização em tempo real (Sua função potente)
-    loc = get_geolocation()
-    lat = loc['coords']['latitude'] if loc else -23.5505
-    lon = loc['coords']['longitude'] if loc else -46.6333
+def renderizar_vitrine_luxo(busca, lat_u, lon_u):
+    cat_ia = ia_mestra_processar(busca)
+    
+    # Buscamos as lojas que têm saldo
+    lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
 
-    menu = st.tabs(["💎 VITRINE", "🏪 MEU ESPAÇO", "👑 ADMIN"])
+    for loja in lojas:
+        l_id, l_data = loja.id, loja.to_dict()
+        nome_loja = l_data.get('nome', '').lower()
+        termo_busca = busca.lower() if busca else ""
 
-    with menu[0]:
-        st.markdown("<h1 style='text-align:center;'>GERALJÁ</h1>", unsafe_allow_html=True)
-        busca = st.text_input("", placeholder="Busque o que você precisa...")
-        renderizar_vitrine_luxo(busca, lat, lon)
+        # REGRA DE EXIBIÇÃO:
+        # 1. Se o usuário digitou o nome EXATO da loja ou parte dele
+        is_busca_loja = termo_busca and termo_busca in nome_loja
+        
+        # 2. Se é apenas uma busca por categoria (IA) ou busca vazia
+        is_busca_geral = not termo_busca or (cat_ia == l_data.get('area'))
 
-    with menu[1]:
-        st.info("Aqui instalaremos o Bloco do Lojista (50 créditos)")
+        if is_busca_loja:
+            # MOSTRA TUDO: Busca todos os posts ativos daquela loja específica
+            posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
+        elif is_busca_geral:
+            # MOSTRA DESTAQUE: Busca apenas o post marcado como 'destaque' para a vitrine geral
+            posts = db.collection("profissionais").document(l_id).collection("posts").where("destaque", "==", True).limit(1).stream()
+        else:
+            continue
+
+        for p_doc in posts:
+            p = p_doc.to_dict()
+            # [AQUI VAI O SEU CSS DO CARD DE LUXO QUE JÁ ENVIAMOS]
+            st.markdown(f"""
+                <div class="card-luxo">
+                    <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
+                    <div class="info-luxo">
+                        <div class="loja-tag">{l_data.get('nome').upper()}</div>
+                        <h2>{p.get('titulo')}</h2>
+                        <div class="price-luxo">R$ {p.get('preco')}</div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            # ... (Botão de contato e cobrança de 1 crédito segue igual)
+def modulo_editor_lojista(l_id, l_data):
+    st.subheader("📸 Gerenciar Minha Vitrine")
+    
+    # 1. LISTAR POSTS PARA ESCOLHER O DESTAQUE
+    posts_ref = db.collection("profissionais").document(l_id).collection("posts").stream()
+    meus_posts = {p.id: p.to_dict().get('titulo') for p in posts_ref}
+    
+    if meus_posts:
+        selecionado = st.selectbox("Qual post deve aparecer na Vitrine Geral?", 
+                                    options=list(meus_posts.keys()), 
+                                    format_func=lambda x: meus_posts[x])
+        
+        if st.button("Fixar como Destaque"):
+            # Primeiro: Tira o destaque de todos
+            for p_id in meus_posts.keys():
+                db.collection("profissionais").document(l_id).collection("posts").document(p_id).update({"destaque": False})
+            # Segundo: Coloca o destaque no selecionado
+            db.collection("profissionais").document(l_id).collection("posts").document(selecionado).update({"destaque": True})
+            st.success("Post fixado na vitrine principal!")
+    
+    # 2. REGRA DOS 50 CRÉDITOS
+    if not l_data.get('ganhou_bonus') and len(meus_posts) >= 1:
+        if st.button("Minha Vitrine está 100% Perfeita! (Ganhar 50 GeralCoins)"):
+            db.collection("profissionais").document(l_id).update({
+                "saldo": l_data.get('saldo', 0) + 50,
+                "ganhou_bonus": True
+            })
+            st.balloons()
+            st.rerun()
+            
 
 # ==============================================================================
 # 🧹 O VARREDOR (RODAPÉ FINALIZADOR - FIXO ✅)
