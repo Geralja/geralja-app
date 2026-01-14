@@ -132,7 +132,61 @@ def main():
         st.info("Aguardando novo bloco para teste... O espaço está reservado aqui no topo.")
     
     st.write("---") # Divisor visual entre Teste e Fixo
+def main():
+    # 1. CONFIGURAÇÃO DE LOCALIZAÇÃO (O Motor invisível)
+    lat, lon = buscar_localizacao_segura()
 
+    # 2. CSS PARA CRIAR O EFEITO DE "BLOCOS" (ESTILO TIMELINE)
+    st.markdown("""
+        <style>
+        .bloco-modular {
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #f0f2f5;
+        }
+        .stApp { background-color: #f0f2f5; } /* Cor de fundo estilo rede social */
+        </style>
+    """, unsafe_allow_html=True)
+
+    # --- INÍCIO DA TIMELINE ---
+    col_lateral, col_central = st.columns([1, 2.5])
+
+    # 📦 BLOCO LATERAL (Navegação/Perfil)
+    with col_lateral:
+        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
+        st.image("https://via.placeholder.com/100", width=80) # Logo ou Foto
+        st.markdown("### Explorar")
+        st.button("🏠 Início", use_container_width=True)
+        st.button("🏪 Minha Loja", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Bloco de Status do Antivírus
+        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
+        st.caption("🛡️ Segurança GeralJá")
+        st.success("Dados Sanitizados")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 📦 BLOCO CENTRAL (O Feed / Vitrine)
+    with col_central:
+        # Espaço para o "Canteiro de Obras" (Onde testaremos coisas novas)
+        with st.container():
+            st.markdown('<div class="bloco-modular" style="border-left: 5px solid #007bff;">', unsafe_allow_html=True)
+            st.write("🧪 **Canteiro de Obras:** Testando novo Editor...")
+            # Aqui entrará a função que estivermos testando
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # O Feed de Produtos (A Vitrine Oficial)
+        st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
+        busca = st.text_input("", placeholder="O que você está procurando?", key="busca_timeline")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Renderiza a vitrine dentro da timeline
+        renderizar_vitrine_luxo(busca, lat, lon)
+
+# --- FIM DA TIMELINE ---
     # 3. 🏠 CONTEÚDO FIXO (CEDENDO ESPAÇO)
     # Este conteúdo "desce" para dar lugar ao teste acima.
     abas = st.tabs(["💎 VITRINE OFICIAL", "🏪 CONFIGURAÇÕES"])
@@ -147,9 +201,6 @@ def main():
 
 # ==============================================================================
 # 🏁 O RESTO DO CÓDIGO (BANCO, IA, RODAPÉ) SEGUE IGUAL
-# ==============================================================================
-# ==============================================================================
-# 🏁 RODAPÉ E FINALIZAÇÃO
 # ==============================================================================
 def rodape_inteligente():
     st.write("---")
