@@ -9,29 +9,37 @@ import re
 import pandas as pd
 import unicodedata
 
-# --- BLOCO DE SEGURANÇA: ANTIVÍRUS DE IMPORTAÇÃO (FIXO ✅) ---
-# Se a biblioteca não estiver instalada, o site NÃO TRAVA mais.
+# 1. CONFIGURAÇÃO DE TELA (FIXO ✅)
+st.set_page_config(page_title="GeralJá | Sistema de Elite", layout="wide")
+
+# ==============================================================================
+# 🛡️ BLOCO DE SEGURANÇA E IMPORTAÇÕES (FIXO ✅)
+# ==============================================================================
 try:
     from streamlit_js_eval import get_geolocation
     GPS_DISPONIVEL = True
 except (ImportError, ModuleNotFoundError):
     GPS_DISPONIVEL = False
 
+# Sanitização (Antivírus de texto)
+def sanitizar_texto_luxo(texto):
+    if not texto: return ""
+    limpo = re.sub(r'<[^>]*?>', '', texto)
+    if limpo.isupper() and len(limpo) > 10:
+        limpo = limpo.capitalize()
+    return limpo.strip()
+
 def buscar_localizacao_segura():
-    """Tenta pegar o GPS. Se falhar, usa a capital (SP) para não dar erro."""
     if GPS_DISPONIVEL:
         try:
             loc = get_geolocation()
             if loc and 'coords' in loc:
                 return loc['coords']['latitude'], loc['coords']['longitude']
-        except:
-            pass
-    return -23.5505, -46.6333 # Localização de emergência para manter o site vivo
-# 1. CONFIGURAÇÃO DE TELA (FIXO ✅)
-st.set_page_config(page_title="GeralJá | Sistema de Elite", layout="wide")
+        except: pass
+    return -23.5505, -46.6333 # SP Padrão
 
 # ==============================================================================
-# 🔒 BLOCO 0: INFRAESTRUTURA E SEGURANÇA (A ORIGEM - FIXO ✅)
+# 🔒 BLOCO 0: CONEXÃO FIREBASE (FIXO ✅)
 # ==============================================================================
 if not firebase_admin._apps:
     try:
@@ -39,30 +47,9 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
     except: pass
 db = firestore.client()
-# Tenta importar, se falhar, o sistema avisa mas não trava o Rodapé
-try:
-    from streamlit_js_eval import get_geolocation
-    GPS_DISPONIVEL = True
-except ImportError:
-    GPS_DISPONIVEL = False
-
-def buscar_localizacao_segura():
-    """Bloco de GPS com Antivírus de Erro"""
-    if GPS_DISPONIVEL:
-        try:
-            loc = get_geolocation()
-            if loc and 'coords' in loc:
-                return loc['coords']['latitude'], loc['coords']['longitude']
-        except:
-            pass
-    # Localização padrão (São Paulo) caso o GPS falhe ou não esteja instalado
-    return -23.5505, -46.6333 
-
-# No seu main(), você usará assim:
-lat, lon = buscar_localizacao_segura()
 
 # ==============================================================================
-# 🧠 BLOCO 1: O MOTOR DE INTELIGÊNCIA (O CÉREBRO - FIXO ✅)
+# 🧠 BLOCO 1: MOTOR DE INTELIGÊNCIA (FIXO ✅)
 # ==============================================================================
 def ia_mestra_processar(texto):
     if not texto: return None
@@ -80,7 +67,7 @@ def calcular_distancia_real(lat1, lon1, lat2, lon2):
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
 
 # ==============================================================================
-# 💎 BLOCO 2: DESIGN DE VITRINE (Aprovado como Revista ✅)
+# 💎 BLOCO 2: VITRINE DE LUXO (DINÂMICA DE DESTAQUE ✅)
 # ==============================================================================
 def renderizar_vitrine_luxo(busca, lat_u, lon_u):
     cat_ia = ia_mestra_processar(busca)
@@ -98,18 +85,27 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
 
     for loja in lojas:
         l_id, l_data = loja.id, loja.to_dict()
-        if busca and not (busca.lower() in l_data.get('nome','').lower() or cat_ia == l_data.get('area')):
-            continue
+        nome_limpo = sanitizar_texto_luxo(l_data.get('nome', 'Loja'))
+        dist = calcular_distancia_real(lat_u, lon_u, l_data.get('lat'), l_data.get('lon'))
+        
+        termo = busca.lower() if busca else ""
+        is_busca_loja = termo and termo in nome_limpo.lower()
+        is_busca_geral = not termo or (cat_ia == l_data.get('area'))
 
-        posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
+        if is_busca_loja:
+            posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
+        elif is_busca_geral:
+            posts = db.collection("profissionais").document(l_id).collection("posts").where("destaque", "==", True).limit(1).stream()
+        else: continue
+
         for p_doc in posts:
             p = p_doc.to_dict()
             st.markdown(f"""
                 <div class="card-luxo">
                     <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
                     <div class="info-luxo">
-                        <div class="loja-tag">{l_data.get('nome').upper()}</div>
-                        <h2 style="margin: 10px 0;">{p.get('titulo')}</h2>
+                        <div class="loja-tag">{nome_limpo.upper()} • {dist}km</div>
+                        <h2 style="margin: 10px 0;">{sanitizar_texto_luxo(p.get('titulo'))}</h2>
                         <div class="price-luxo">R$ {p.get('preco')}</div>
                     </div>
                 </div>
@@ -121,118 +117,33 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
                 st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}")
 
 # ==============================================================================
-# 🛠️ BLOCO EM TESTE: CONSTRUTOR DE FUNÇÕES
+# 🏗️ CONSTRUTOR PRINCIPAL
 # ==============================================================================
-def renderizar_vitrine_luxo(busca, lat_u, lon_u):
-    cat_ia = ia_mestra_processar(busca)
+def main():
+    lat, lon = buscar_localizacao_segura()
     
-    # Buscamos as lojas que têm saldo
-    lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
-
-    for loja in lojas:
-        l_id, l_data = loja.id, loja.to_dict()
-        nome_loja = l_data.get('nome', '').lower()
-        termo_busca = busca.lower() if busca else ""
-
-        # REGRA DE EXIBIÇÃO:
-        # 1. Se o usuário digitou o nome EXATO da loja ou parte dele
-        is_busca_loja = termo_busca and termo_busca in nome_loja
-        
-        # 2. Se é apenas uma busca por categoria (IA) ou busca vazia
-        is_busca_geral = not termo_busca or (cat_ia == l_data.get('area'))
-
-        if is_busca_loja:
-            # MOSTRA TUDO: Busca todos os posts ativos daquela loja específica
-            posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
-        elif is_busca_geral:
-            # MOSTRA DESTAQUE: Busca apenas o post marcado como 'destaque' para a vitrine geral
-            posts = db.collection("profissionais").document(l_id).collection("posts").where("destaque", "==", True).limit(1).stream()
-        else:
-            continue
-
-        for p_doc in posts:
-            p = p_doc.to_dict()
-            # [AQUI VAI O SEU CSS DO CARD DE LUXO QUE JÁ ENVIAMOS]
-            st.markdown(f"""
-                <div class="card-luxo">
-                    <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
-                    <div class="info-luxo">
-                        <div class="loja-tag">{l_data.get('nome').upper()}</div>
-                        <h2>{p.get('titulo')}</h2>
-                        <div class="price-luxo">R$ {p.get('preco')}</div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            # ... (Botão de contato e cobrança de 1 crédito segue igual)
-
-def modulo_editor_lojista(l_id, l_data):
-    st.subheader("📸 Gerenciar Minha Vitrine")
+    abas = st.tabs(["💎 VITRINE", "🏪 MEU ESPAÇO"])
     
-    # 1. LISTAR POSTS PARA ESCOLHER O DESTAQUE
-    posts_ref = db.collection("profissionais").document(l_id).collection("posts").stream()
-    meus_posts = {p.id: p.to_dict().get('titulo') for p in posts_ref}
+    with abas[0]:
+        st.markdown("<h1 style='text-align:center;'>GERALJÁ</h1>", unsafe_allow_html=True)
+        busca = st.text_input("", placeholder="Busque por loja ou produto...")
+        renderizar_vitrine_luxo(busca, lat, lon)
     
-    if meus_posts:
-        selecionado = st.selectbox("Qual post deve aparecer na Vitrine Geral?", 
-                                    options=list(meus_posts.keys()), 
-                                    format_func=lambda x: meus_posts[x])
-        
-        if st.button("Fixar como Destaque"):
-            # Primeiro: Tira o destaque de todos
-            for p_id in meus_posts.keys():
-                db.collection("profissionais").document(l_id).collection("posts").document(p_id).update({"destaque": False})
-            # Segundo: Coloca o destaque no selecionado
-            db.collection("profissionais").document(l_id).collection("posts").document(selecionado).update({"destaque": True})
-            st.success("Post fixado na vitrine principal!")
-    
-    # 2. REGRA DOS 50 CRÉDITOS
-    if not l_data.get('ganhou_bonus') and len(meus_posts) >= 1:
-        if st.button("Minha Vitrine está 100% Perfeita! (Ganhar 50 GeralCoins)"):
-            db.collection("profissionais").document(l_id).update({
-                "saldo": l_data.get('saldo', 0) + 50,
-                "ganhou_bonus": True
-            })
-            st.balloons()
-            st.rerun()
-            
+    with abas[1]:
+        st.write("Área do Lojista em Manutenção...")
 
 # ==============================================================================
-# 🏁 BLOCO 4: RODAPÉ INTELIGENTE COM AUTO-CORREÇÃO E SEGURANÇA (FIXO ✅)
+# 🏁 RODAPÉ E FINALIZAÇÃO
 # ==============================================================================
-
-import re
-
-# 1. FUNÇÃO ANTIVÍRUS E AUTO-CORREÇÃO (O "Limpador")
-def sanitizar_texto_luxo(texto):
-    """Bloqueia poluição visual e scripts maliciosos"""
-    if not texto: return ""
-    # Antivírus: Remove qualquer tentativa de código <script> ou HTML
-    limpo = re.sub(r'<[^>]*?>', '', texto)
-    # Auto-Correção: Se o lojista escreveu TUDO EM MAIÚSCULO, nós suavizamos
-    if limpo.isupper() and len(limpo) > 10:
-        limpo = limpo.capitalize()
-    return limpo.strip()
-
-# 2. FUNÇÃO DO RODAPÉ INTELIGENTE
 def rodape_inteligente():
     st.write("---")
     c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        st.markdown("<small>🟢 SISTEMA PROTEGIDO</small>", unsafe_allow_html=True)
-    with c2:
-        st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS DE DADOS ATIVO</small></div>", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"<div style='text-align:right;'><small>v2.0 | {datetime.now().year}</small></div>", unsafe_allow_html=True)
+    with c1: st.markdown("<small>🟢 SISTEMA PROTEGIDO</small>", unsafe_allow_html=True)
+    with c2: st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS ATIVO</small></div>", unsafe_allow_html=True)
+    with c3: st.markdown(f"<div style='text-align:right;'><small>v2.0 | {datetime.datetime.now().year}</small></div>", unsafe_allow_html=True)
 
-    # O "Varredor" Original do seu arquivo (Estilizado)
-    st.markdown("""
-        <style>
-            .main .block-container { padding-bottom: 5rem !important; }
-            .footer-clean { text-align: center; padding: 20px; opacity: 0.6; font-size: 0.8rem; }
-        </style>
-        <div class="footer-clean">
-            <p>🎯 <b>GeralJá</b> - Sistema de Inteligência Local</p>
-            <p>Conectando com segurança e elegância.</p>
-        </div>
-    """, unsafe_allow_html=True)
+if __name__ == "__main__":
+    try:
+        main()
+    finally:
+        rodape_inteligente()
