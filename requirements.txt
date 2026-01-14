@@ -1,3 +1,4 @@
 firebase-admin
 Pillow
 streamlit-js-eval
+panda
