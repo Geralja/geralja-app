@@ -17,48 +17,51 @@ import pytz
 import requests
 from urllib.parse import quote
 
-# ------------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO E TEMA
-# ------------------------------------------------------------------------------
-st.set_page_config(page_title="GeralJá | Vitrine Elite", page_icon="🛍️", layout="wide")
+# Tentativa de importação para GPS (se configurado no seu ambiente)
+try:
+    from streamlit_js_eval import get_geolocation
+except ImportError:
+    get_geolocation = None
 
-# CSS para Vitrine "Muito Xique"
+# ------------------------------------------------------------------------------
+# 1. CONFIGURAÇÃO DE TELA E CSS (VISUAL "XIQUE")
+# ------------------------------------------------------------------------------
+st.set_page_config(page_title="GeralJá | Vitrine Pro", page_icon="🛍️", layout="wide")
+
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
     * { font-family: 'Inter', sans-serif; }
     .stApp { background-color: #f0f2f5; }
     
-    /* Header Estilo Facebook Marketplace */
-    .header-container { 
-        background: white; padding: 20px; border-radius: 0 0 20px 20px; 
-        text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        margin-bottom: 25px; border-bottom: 4px solid #1877f2;
+    /* Header Estilo Facebook */
+    .header-fb { 
+        background: white; padding: 20px; border-radius: 0 0 15px 15px; 
+        text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px; border-bottom: 5px solid #1877f2;
     }
 
-    /* Card de Produto/Serviço Luxo */
+    /* Card de Vitrine Chique */
     .product-card {
         background: white; border-radius: 12px; overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: 0.3s;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: 0.3s;
         border: 1px solid #ddd; margin-bottom: 20px;
     }
-    .product-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.15); }
+    .product-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
     
-    .product-img { width: 100%; height: 200px; object-fit: cover; background: #eee; }
+    .product-img { width: 100%; height: 220px; object-fit: cover; background: #f8f9fa; }
     
-    .product-info { padding: 15px; }
-    .price-tag { color: #1c1e21; font-size: 1.3rem; font-weight: 800; margin: 5px 0; }
-    .store-name { color: #65676b; font-size: 0.85rem; font-weight: 600; }
-    .verified-check { color: #1877f2; margin-left: 4px; }
+    .product-info { padding: 18px; }
+    .price-tag { color: #1c1e21; font-size: 1.4rem; font-weight: 800; margin: 8px 0; }
+    .store-name { color: #1877f2; font-size: 0.9rem; font-weight: bold; text-transform: uppercase; }
     
-    /* Botão Zap Customizado */
+    /* Botão Zap */
     .btn-zap {
         background-color: #25D366; color: white !important;
         padding: 12px; border-radius: 8px; text-align: center;
         font-weight: bold; text-decoration: none; display: block;
-        margin-top: 10px; transition: 0.3s;
+        margin-top: 10px;
     }
-    .btn-zap:hover { background-color: #128C7E; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -67,129 +70,143 @@ st.markdown("""
 # ------------------------------------------------------------------------------
 if not firebase_admin._apps:
     try:
-        if "FIREBASE_BASE64" in st.secrets:
-            b64_key = st.secrets["FIREBASE_BASE64"]
-            cred_dict = json.loads(base64.b64decode(b64_key).decode("utf-8"))
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-        else:
-            st.error("Erro: Secret FIREBASE_BASE64 não configurada.")
-            st.stop()
+        # Pega a chave do Streamlit Secrets (deve estar em base64)
+        b64_key = st.secrets["FIREBASE_BASE64"]
+        cred_dict = json.loads(base64.b64decode(b64_key).decode("utf-8"))
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.error(f"Erro Firebase: {e}")
+        st.error(f"Erro de Conexão: {e}")
         st.stop()
 
 db = firestore.client()
 
 # ------------------------------------------------------------------------------
-# 3. CONSTANTES E IA MESTRA (CONCEITOS)
+# 3. IA MESTRA E FUNÇÕES DE LÓGICA
 # ------------------------------------------------------------------------------
 BONUS_WELCOME = 50.0
 VALOR_CLIQUE = 2.0
-CATEGORIAS_OFICIAIS = ["Pizzaria", "Lanchonete", "Mecânico", "Eletricista", "Loja de Roupas", "Adega", "Informática", "Diarista", "Outros"]
 
-CONCEITOS_IA = {
-    "pizza": "Pizzaria", "fome": "Pizzaria", "mecanico": "Mecânico", 
-    "carro": "Mecânico", "roupa": "Loja de Roupas", "cerveja": "Adega"
-}
-
-def processar_ia_avancada(texto):
-    t_clean = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower().strip()
-    for chave, cat in CONCEITOS_IA.items():
-        if chave in t_clean: return cat
-    return "NAO_ENCONTRADO"
+def processar_ia_mestra(texto):
+    """IA que entende o que o usuário quer e mapeia categorias."""
+    t = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower()
+    mapa = {
+        "pizza": "Pizzaria", "hamburguer": "Lanchonete", "lanche": "Lanchonete",
+        "carro": "Mecânico", "oficina": "Mecânico", "luz": "Eletricista",
+        "celular": "Informática", "pc": "Informática", "roupa": "Moda"
+    }
+    for chave, cat in mapa.items():
+        if chave in t: return cat
+    return None
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
-    if None in [lat1, lon1, lat2, lon2]: return 99.0
-    R = 6371
+    if None in [lat1, lon1, lat2, lon2]: return 999
+    R = 6371 # Raio da Terra em KM
     dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
 
 # ------------------------------------------------------------------------------
-# 4. INTERFACE PRINCIPAL
+# 4. INTERFACE E NAVEGAÇÃO
 # ------------------------------------------------------------------------------
-st.markdown('<div class="header-container"><h1 style="color:#1877f2; margin:0;">GERALJÁ</h1><p style="color:#65676b;">A Sua Vitrine Comunitária</p></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-fb"><h1>GERALJÁ</h1><p>A sua vitrine inteligente</p></div>', unsafe_allow_html=True)
 
-menu_abas = st.tabs(["🔍 VITRINE", "🚀 CADASTRAR", "👤 MEU PERFIL", "👑 ADMIN"])
+menu_abas = st.tabs(["🛍️ VITRINE", "🚀 ANUNCIAR", "💰 MEU SALDO", "👑 ADMIN"])
 
-# --- ABA 1: VITRINE (BUSCA E PRODUTOS) ---
+# --- LOCALIZAÇÃO DO USUÁRIO ---
+user_loc = {"lat": -23.5505, "lon": -46.6333} # Padrão SP
+if get_geolocation:
+    loc = get_geolocation()
+    if loc:
+        user_loc["lat"] = loc['coords']['latitude']
+        user_loc["lon"] = loc['coords']['longitude']
+
+# --- ABA 1: VITRINE (O SHOPPING) ---
 with menu_abas[0]:
     c1, c2 = st.columns([3, 1])
-    termo = c1.text_input("O que você procura hoje?", placeholder="Ex: Pizza, iPhone, Pintor...")
-    raio = c2.select_slider("Raio (KM)", options=[5, 10, 20, 50, 100], value=10)
+    busca = c1.text_input("O que você precisa agora?", placeholder="Ex: Pizza, Consertar PC...")
+    raio_km = c2.selectbox("Distância", [5, 10, 20, 50, 100], index=1)
 
-    # Simulação de Localização (No original você usa get_geolocation)
-    m_lat, m_lon = -23.5505, -46.6333 
-
-    profs = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">", 0).stream()
+    # A QUERY QUE PRECISAVA DO ÍNDICE:
+    profs_ref = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">", 0).stream()
     
-    lista_vitrine = []
-    for doc in profs:
+    col_grid = st.columns(3)
+    idx = 0
+    
+    for doc in profs_ref:
         p = doc.to_dict()
-        p['id'] = doc.id
-        dist = calcular_distancia(m_lat, m_lon, p.get('lat'), p.get('lon'))
-        if dist <= raio:
-            p['dist'] = dist
-            lista_vitrine.append(p)
+        pid = doc.id
+        dist = calcular_distancia(user_loc["lat"], user_loc["lon"], p.get('lat'), p.get('lon'))
+        
+        # Filtro de Distância
+        if dist > raio_km: continue
+        
+        # Filtro de Busca com IA
+        cat_ia = processar_ia_mestra(busca)
+        if busca and not (busca.lower() in p.get('nome','').lower() or (cat_ia and cat_ia == p.get('area'))):
+            continue
 
-    # Grid de 3 Colunas para ficar "Xique"
-    cols = st.columns(3)
-    for i, p in enumerate(lista_vitrine):
-        with cols[i % 3]:
-            # IA verifica se o termo de busca bate com o serviço
-            if termo and processar_ia_avancada(termo) != p.get('area') and termo.lower() not in p.get('nome').lower():
-                continue
-
-            foto_p = p.get('foto_b64', '')
-            img_src = f"data:image/png;base64,{foto_p}" if foto_p else "https://via.placeholder.com/400x300?text=Sem+Foto"
-            verificado = '<span class="verified-check">✔</span>' if p.get('verificado') else ""
+        # Renderização do Card Chique
+        with col_grid[idx % 3]:
+            img_data = f"data:image/png;base64,{p.get('foto_b64')}" if p.get('foto_b64') else "https://via.placeholder.com/400x300?text=GeralJá"
             
             st.markdown(f"""
                 <div class="product-card">
-                    <img src="{img_src}" class="product-img">
+                    <img src="{img_data}" class="product-img">
                     <div class="product-info">
-                        <span class="store-name">{p.get('nome').upper()} {verificado}</span>
-                        <div style="font-size: 1.1rem; font-weight: 600;">{p.get('servico') or p.get('area')}</div>
+                        <span class="store-name">{p.get('nome')} ✔</span>
+                        <div style="font-weight:600; font-size: 1.1rem; min-height: 50px;">{p.get('servico') or p.get('area')}</div>
                         <div class="price-tag">R$ {p.get('preco', '0,00')}</div>
-                        <p style="font-size:0.8rem; color:gray;">📍 {p['dist']} km de você</p>
-                        <a href="https://wa.me/55{p['id']}?text=Olá, vi seu produto no GeralJá" target="_blank" class="btn-zap">
-                            💬 VER DETALHES
-                        </a>
+                        <p style="font-size:0.8rem; color:#65676b;">📍 a {dist} km de você</p>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
             
-            # Lógica de débito de saldo (Simulada no clique do botão acima precisaria de um redirecionador)
-            # Para simplificar, registramos a visualização:
-            db.collection("profissionais").document(p['id']).update({"cliques": p.get('cliques', 0) + 1})
-
-# --- ABA 2: CADASTRO (TURBINADO) ---
-with menu_abas[1]:
-    st.header("🚀 Cadastre sua Loja ou Serviço")
-    with st.form("cad_novo"):
-        c_nome = st.text_input("Nome da Loja/Profissional")
-        c_zap = st.text_input("WhatsApp (com DDD, só números)")
-        c_area = st.selectbox("Categoria", CATEGORIAS_OFICIAIS)
-        c_preco = st.text_input("Preço Principal (Ex: 59.90)")
-        c_desc = st.text_area("Descrição do Produto/Serviço")
-        c_foto = st.file_uploader("Foto da Vitrine", type=["jpg", "png"])
+            if st.button(f"Falar com {p.get('nome').split()[0]}", key=f"btn_{pid}"):
+                # Sistema de Cobrança por Clique
+                novo_saldo = p.get('saldo', 0) - VALOR_CLIQUE
+                db.collection("profissionais").document(pid).update({"saldo": novo_saldo, "cliques": p.get('cliques', 0) + 1})
+                st.success(f"WhatsApp: {p.get('whatsapp')}")
+                st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{p.get('whatsapp')}?text=Vi+seu+anuncio+no+GeralJa")
         
-        if st.form_submit_button("PUBLICAR NA VITRINE"):
-            if c_nome and c_zap:
-                foto_b64 = base64.b64encode(c_foto.read()).decode() if c_foto else ""
-                db.collection("profissionais").document(c_zap).set({
-                    "nome": c_nome, "whatsapp": c_zap, "area": c_area,
-                    "preco": c_preco, "descricao": c_desc, "foto_b64": foto_b64,
-                    "saldo": BONUS_WELCOME, "aprovado": True, "lat": m_lat, "lon": m_lon,
-                    "cliques": 0, "verificado": False
-                })
-                st.success("Sua vitrine está no ar!")
-                st.balloons()
+        idx += 1
 
-# --- ABA 3: PERFIL E ABA 4: ADMIN (MANTIDAS DO SEU ORIGINAL) ---
+# --- ABA 2: CADASTRO COM FOTO ---
+with menu_abas[1]:
+    st.header("Anuncie na Vitrine")
+    with st.form("cad_loja"):
+        c_nome = st.text_input("Nome do Comércio/Profissional")
+        c_zap = st.text_input("WhatsApp (apenas números)")
+        c_area = st.selectbox("Categoria", ["Pizzaria", "Mecânico", "Informática", "Moda", "Outros"])
+        c_serv = st.text_input("Título do Anúncio (Ex: Pizza Grande 2 Sabores)")
+        c_preco = st.text_input("Preço")
+        c_foto = st.file_uploader("Foto do Produto/Serviço", type=["jpg", "png"])
+        
+        if st.form_submit_button("PUBLICAR AGORA"):
+            foto_b64 = base64.b64encode(c_foto.read()).decode() if c_foto else ""
+            dados = {
+                "nome": c_nome, "whatsapp": c_zap, "area": c_area, "servico": c_serv,
+                "preco": c_preco, "foto_b64": foto_b64, "saldo": BONUS_WELCOME,
+                "aprovado": True, "verificado": True, "cliques": 0,
+                "lat": user_loc["lat"], "lon": user_loc["lon"], "data": datetime.now()
+            }
+            db.collection("profissionais").document(c_zap).set(dados)
+            st.balloons()
+            st.success("Publicado com sucesso! Você ganhou R$ 50 de bônus.")
+
+# --- ABA 4: ADMIN (O SEU CONTROLE) ---
 with menu_abas[3]:
-    chave = st.text_input("Chave Mestra", type="password")
-    if chave == "mumias":
-        st.write("### Painel de Controle Master")
-        # Aqui você coloca a lógica de aprovação e saldo do seu arquivo original
+    adm_key = st.text_input("Chave Mestra", type="password")
+    if adm_key == "mumias":
+        st.write("### Gestão Geral")
+        docs = db.collection("profissionais").stream()
+        for d in docs:
+            val = d.to_dict()
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.write(f"**{val.get('nome')}** (R$ {val.get('saldo')})")
+            if col2.button("+10", key=f"add_{d.id}"):
+                db.collection("profissionais").document(d.id).update({"saldo": val.get('saldo',0)+10})
+                st.rerun()
+            if col3.button("DEL", key=f"del_{d.id}"):
+                db.collection("profissionais").document(d.id).delete()
+                st.rerun()
