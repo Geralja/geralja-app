@@ -47,36 +47,95 @@ def ia_mestra_processar(texto):
 # 2. ÁREA DE TESTE: CONSTRUTOR DE VITRINE LUXO 🛠️
 # ==========================================================
 
-def main():
-    # Carregamos o seu CSS de tema claro/escuro original aqui para manter o visual
-    st.markdown("<h1 style='text-align:center;'>GERALJÁ | BANCO ATIVO</h1>", unsafe_allow_html=True)
-    
-    # 1. LOCALIZAÇÃO (Ponto crucial do teu banco para calcular KM)
-    loc = get_geolocation()
-    u_lat = loc['coords']['latitude'] if loc else -23.5505
-    u_lon = loc['coords']['longitude'] if loc else -46.6333
+def bloco_vitrine_TESTE(busca, categoria_ia, lat_user, lon_user):
+    """
+    TESTE: Interface de Alto Padrão em Blocos.
+    O foco aqui é o PRODUTO. O nome da loja é o detalhe.
+    """
+    # 1. CSS DE DESIGN MODERNO (Limpo e Imersivo)
+    st.markdown("""
+        <style>
+        .card-elite {
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #f0f0f0;
+            margin-bottom: 30px;
+            transition: 0.4s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.03);
+        }
+        .card-elite:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+        .img-vitrine {
+            width: 100%;
+            height: 350px;
+            object-fit: cover;
+            border-radius: 20px 20px 0 0;
+        }
+        .info-vitrine {
+            padding: 20px;
+            text-align: left;
+        }
+        .loja-tag {
+            font-size: 0.7rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+        .preco-elite {
+            color: #1a1a1a;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # 2. BUSCA NO BANCO
-    busca = st.text_input("Encontre no Banco GeralJá...")
-    cat_ia = ia_mestra_processar(busca)
-    
-    # LISTAGEM REAL DOS DADOS QUE JÁ TENS
-    lojas = buscar_lojas_ativas()
-    
-    st.write("---")
-    st.write("### 💎 TESTE DE DESIGN DE VITRINE (DADOS REAIS)")
-    
-    # Aqui vamos testar como exibir os dados que vieram do banco
+    # 2. BUSCA NO BANCO REAL (Usando o motor fixo do Bloco 1)
+    lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
+
     for loja in lojas:
-        dados = loja.to_dict()
-        # Se a IA detetou algo ou se o nome bate, mostramos:
-        if not busca or (cat_ia == dados.get('area')) or (busca.lower() in dados.get('nome','').lower()):
-            with st.expander(f"🏪 {dados.get('nome')} - Saldo: {dados.get('saldo')} GeralCoins"):
-                st.write(f"Categoria: {dados.get('area')}")
-                # Aqui o sistema vai ler os 'posts' que o lojista cadastrou
-                posts = buscar_posts_da_loja(loja.id)
-                for p in posts:
-                    st.json(p.to_dict()) # Teste bruto dos dados por enquanto
+        l_data = loja.to_dict()
+        l_id = loja.id
+        
+        # Filtro de IA e Nome (O seu esqueleto potente)
+        if busca and not (busca.lower() in l_data.get('nome','').lower() or categoria_ia == l_data.get('area')):
+            continue
+            
+        # Puxa os Posts (Produtos) de cada loja
+        posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
+        
+        for p_doc in posts:
+            p = p_doc.to_dict()
+            
+            # Montagem do Card de Luxo
+            col1, col2, col3 = st.columns([1, 6, 1]) # Centraliza o bloco na tela
+            with col2:
+                img_src = f"data:image/png;base64,{p.get('foto')}" if p.get('foto') else "https://via.placeholder.com/600x400"
+                
+                st.markdown(f"""
+                    <div class="card-elite">
+                        <img src="{img_src}" class="img-vitrine">
+                        <div class="info-vitrine">
+                            <span class="loja-tag">{l_data.get('nome')}</span>
+                            <h3 style="margin: 5px 0; color:#000;">{p.get('titulo')}</h3>
+                            <div class="preco-elite">R$ {p.get('preco')}</div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # BOTÃO DE AÇÃO (Onde o 1 crédito é cobrado)
+                if st.button(f"S'ENTRETENIR / CONTATAR {l_data.get('nome').upper()}", key=f"btn_{p_doc.id}"):
+                    # Executa a função fixa de cobrança
+                    if l_data['saldo'] >= 1:
+                        db.collection("profissionais").document(l_id).update({"saldo": l_data['saldo'] - 1})
+                        st.success(f"WHATSAPP: {l_data.get('whatsapp')}")
+                        st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}")
+                    else:
+                        st.error("Loja indisponível no momento.")
+                
+                st.write("") # Espaçador
 
 # ==========================================================
 # 3. FINALIZADOR (VARREDOR ORIGINAL) ✅
