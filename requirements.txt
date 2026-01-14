@@ -1,5 +1,10 @@
+
+streamlit
+
 firebase-admin
 
-Pillow
+pandas
 
-streamlit-js-eval
+pytz
+
+requests
