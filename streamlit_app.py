@@ -259,3 +259,16 @@ with menu[1]:
                             doc_ref.update({"saldo": l.get('saldo', 0) + bonus})
                             st.balloons()
                         st.success("VITRINE ATUALIZADA COM SUCESSO")
+                        # --- ABA 4: ADMIN (CONTROLE DE SALDO) ---
+with menu[3]:
+    adm_key = st.text_input("Chave Mestra", type="password")
+    if adm_key == "admin123":
+        st.subheader("Gerenciar Destaques")
+        profs_adm = db.collection("profissionais").stream()
+        for p_adm in profs_adm:
+            p_data = p_adm.to_dict()
+            c1, c2 = st.columns([3, 1])
+            c1.write(f"**{p_data['nome']}** (Saldo: {p_data.get('saldo', 0)})")
+            if c2.button("➕ ADICIONAR 10", key=f"add_{p_adm.id}"):
+                db.collection("profissionais").document(p_adm.id).update({"saldo": p_data.get('saldo', 0) + 10})
+                st.rerun()
