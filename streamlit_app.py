@@ -156,9 +156,7 @@ def modulo_editor_lojista(l_id, l_data):
             st.rerun()
             
 
-# ==============================================================================
-# 🧹 O VARREDOR (RODAPÉ FINALIZADOR - FIXO ✅)
-# ==============================================================================
+
 # CHAMADA FINAL - ESTA DEVE SER A ÚLTIMA LINHA DO SEU APP
 finalizar_e_alinhar_layout()
 # ------------------------------------------------------------------------------
