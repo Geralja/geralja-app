@@ -9,37 +9,12 @@ import re
 import pandas as pd
 import unicodedata
 
-# 1. CONFIGURAÇÃO DE TELA (FIXO ✅)
-st.set_page_config(page_title="GeralJá | Plataforma de Elite", layout="wide")
-
 # ==============================================================================
-# 🛡️ BLOCO DE SEGURANÇA E IMPORTAÇÕES (FIXO ✅)
+# 🛡️ 1. CONFIGURAÇÕES E SEGURANÇA (A BASE)
 # ==============================================================================
-try:
-    from streamlit_js_eval import get_geolocation
-    GPS_DISPONIVEL = True
-except (ImportError, ModuleNotFoundError):
-    GPS_DISPONIVEL = False
+st.set_page_config(page_title="GeralJá | Plataforma Turbo", layout="wide")
 
-def sanitizar_texto_luxo(texto):
-    if not texto: return ""
-    limpo = re.sub(r'<[^>]*?>', '', texto)
-    if limpo.isupper() and len(limpo) > 10:
-        limpo = limpo.capitalize()
-    return limpo.strip()
-
-def buscar_localizacao_segura():
-    if GPS_DISPONIVEL:
-        try:
-            loc = get_geolocation()
-            if loc and 'coords' in loc:
-                return loc['coords']['latitude'], loc['coords']['longitude']
-        except: pass
-    return -23.5505, -46.6333 
-
-# ==============================================================================
-# 🔒 BLOCO 0: CONEXÃO FIREBASE (FIXO ✅)
-# ==============================================================================
+# Conexão Blindada com Firebase
 if not firebase_admin._apps:
     try:
         fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
@@ -47,210 +22,120 @@ if not firebase_admin._apps:
     except: pass
 db = firestore.client()
 
-# ==============================================================================
-# 🧠 BLOCO 1: MOTOR DE INTELIGÊNCIA (FIXO ✅)
-# ==============================================================================
-def ia_mestra_processar(texto):
-    if not texto: return None
-    t = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower()
-    mapa = {"pizza": "Pizzaria", "fome": "Pizzaria", "carro": "Mecânico", "luz": "Eletricista", "roupa": "Moda"}
-    for chave, cat in mapa.items():
-        if chave in t: return cat
-    return None
+# Antivírus de Texto e Localização
+def sanitizar(t):
+    return re.sub(r'<[^>]*?>', '', t).strip() if t else ""
 
-def calcular_distancia_real(lat1, lon1, lat2, lon2):
-    if None in [lat1, lon1, lat2, lon2]: return 999
-    R = 6371
-    dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-    return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
+def buscar_coords():
+    return -23.5505, -46.6333 # Padrão São Paulo
 
 # ==============================================================================
-# 👑 NOVO BLOCO: CAPA FIXA DE ELITE (DESIGN IA ✅)
-# ==============================================================================
-def renderizar_capa_fixa():
-    """Cria uma capa de alto impacto no topo da Timeline"""
-    agora = datetime.datetime.now().hour
-    saudacao = "Boa noite"
-    if agora < 12: saudacao = "Bom dia"
-    elif agora < 18: saudacao = "Boa tarde"
-    
-    st.markdown(f"""
-        <div style="
-            background: linear-gradient(135.47deg, #1d4ed8 0%, #1e3a8a 100%);
-            border-radius: 15px;
-            padding: 35px;
-            color: white;
-            margin-bottom: 25px;
-            text-align: left;
-            box-shadow: 0 10px 20px rgba(30, 58, 138, 0.15);
-        ">
-            <h1 style="color: white; margin: 0; font-size: 2rem; font-weight: 800; border: none;">
-                {saudacao}, Vizinho! 🎯
-            </h1>
-            <p style="font-size: 1.1rem; opacity: 0.9; margin-top: 10px; border: none;">
-                O que você precisa encontrar na sua região hoje?
-            </p>
-            <div style="
-                margin-top: 15px;
-                display: inline-block;
-                padding: 8px 15px;
-                background: rgba(255,255,255,0.2);
-                color: white;
-                border-radius: 20px;
-                font-size: 0.8rem;
-                backdrop-filter: blur(5px);
-            ">
-                ✨ {datetime.datetime.now().strftime('%d/%m/%Y')} • Sistema de Inteligência Ativo
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    # ==============================================================================
-# 🔐 3. O MECANISMO DE INJEÇÃO (SEU PAINEL ADM)
+# 🧠 2. O MOTOR DO ARQUITETO (INJEÇÃO DINÂMICA)
 # ==============================================================================
 def carregar_bloco_dinamico():
-    """Lê o código que você colou no ADM e traz para o site"""
     try:
         doc = db.collection("configuracoes").document("layout_ia").get()
-        if doc.exists:
-            return doc.to_dict().get("codigo_injetado", "")
-    except: pass
-    return ""
+        return doc.to_dict().get("codigo_injetado", "") if doc.exists else ""
+    except: return ""
 
 def painel_adm_arquiteto():
-    """Espaço para você colar o código e a IA organizar no site"""
-    with st.sidebar: # Fica escondido na lateral esquerda
-        st.write("---")
-        with st.expander("🔐 MODO ARQUITETO (ADM)"):
-            senha = st.text_input("Senha", type="password", key="senha_adm")
-            if senha == "123": # Altere sua senha aqui
-                st.subheader("Injetor de Funções")
-                novo_cod = st.text_area("Cole o código aqui:", height=300, placeholder="Ex: st.button('Oi')")
-                if st.button("🚀 SOLDAR NO SITE"):
+    with st.sidebar:
+        st.markdown("### ⚙️ Painel de Controle")
+        with st.expander("🔐 MODO ARQUITETO"):
+            senha = st.text_input("Senha Master", type="password")
+            if senha == "123":
+                st.info("Dica: Cole aqui códigos Python/Streamlit")
+                novo_cod = st.text_area("Injetor de Código", height=300)
+                if st.button("🚀 SOLDAR NO SITE AGORA"):
                     db.collection("configuracoes").document("layout_ia").set({
                         "codigo_injetado": novo_cod,
                         "data": datetime.datetime.now()
                     })
-                    st.success("Soldado com sucesso! Atualize a página.")
+                    st.success("Código injetado com sucesso!")
                     st.rerun()
 
 # ==============================================================================
-# 📸 BLOCO: GESTÃO DO LOJISTA (CANTEIRO DE OBRAS 🛠️)
+# 🎨 3. COMPONENTES VISUAIS (DESIGN DE ELITE)
 # ==============================================================================
-def modulo_gestao_lojista():
-    st.markdown("### 📸 Espaço do Parceiro")
-    l_id = "ID_DA_LOJA_TESTE" 
-    loja_ref = db.collection("profissionais").document(l_id).get()
-    
-    if loja_ref.exists:
-        l_data = loja_ref.to_dict()
-        st.write(f"Seu Saldo: **{l_data.get('saldo', 0)} GeralCoins**")
-        
-        with st.expander("➕ Publicar Novo Produto/Serviço", expanded=False):
-            novo_titulo = st.text_input("Título do Anúncio")
-            novo_preco = st.text_input("Preço (R$)")
-            nova_foto = st.file_uploader("Enviar Foto", type=['jpg', 'png', 'jpeg'])
+def renderizar_capa_fixa():
+    st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%); border-radius: 15px; padding: 40px; color: white; margin-bottom: 25px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+            <h1 style="color: white; border: none; margin: 0; font-size: 2.5rem;">GeralJá Turbo 🎯</h1>
+            <p style="font-size: 1.2rem; opacity: 0.9;">A inteligência que conecta você ao comércio local.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-            if st.button("🚀 Finalizar e Publicar"):
-                if novo_titulo and nova_foto:
-                    img_64 = base64.b64encode(nova_foto.read()).decode()
-                    post_data = {
-                        "titulo": sanitizar_texto_luxo(novo_titulo),
-                        "preco": novo_preco,
-                        "foto": img_64,
-                        "ativo": True,
-                        "destaque": True,
-                        "data": datetime.datetime.now()
-                    }
-                    db.collection("profissionais").document(l_id).collection("posts").add(post_data)
-                    
-                    if not l_data.get('ganhou_bonus'):
-                        db.collection("profissionais").document(l_id).update({
-                            "saldo": l_data.get('saldo', 0) + 50,
-                            "ganhou_bonus": True
-                        })
-                        st.balloons()
-                    st.success("Publicado com Sucesso!")
-                    st.rerun()
+def renderizar_vitrine_oficial():
+    st.markdown('<div class="bloco"><h3>💎 Vitrine de Destaques</h3></div>', unsafe_allow_html=True)
+    # Aqui o sistema busca as lojas no banco
+    lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).limit(5).stream()
+    for loja in lojas:
+        l = loja.to_dict()
+        st.markdown(f"""
+            <div class="bloco">
+                <h4 style="margin:0;">{sanitizar(l.get('nome'))}</h4>
+                <p style="color: #666; font-size: 0.9rem;">{l.get('area', 'Serviços')}</p>
+            </div>
+        """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 💎 BLOCO: VITRINE DE LUXO (FEED ✅)
+# 🏗️ 4. O GRANDE CONSTRUTOR (MAIN ÚNICO)
 # ==============================================================================
-def renderizar_vitrine_luxo(busca, lat_u, lon_u):
-    cat_ia = ia_mestra_processar(busca)
-    
+def main():
+    # Estilização Geral (CSS Timeline)
     st.markdown("""
         <style>
-        .card-luxo { background: white; border-radius: 15px; border: 1px solid #e1e4e8; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
-        .img-luxo { width: 100%; height: 320px; object-fit: cover; }
-        .info-luxo { padding: 20px; }
-        .price-luxo { font-size: 1.4rem; font-weight: 800; color: #1a1a1a; }
+        .stApp { background-color: #f0f2f5; }
+        .bloco { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; border: 1px solid #e1e4e8; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        [data-testid="stHeader"] { background: rgba(0,0,0,0); }
         </style>
     """, unsafe_allow_html=True)
 
-    lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
+    # Definição de Colunas Estilo Facebook
+    col_lateral, col_central = st.columns([1, 2.5])
 
-    for loja in lojas:
-        l_id, l_data = loja.id, loja.to_dict()
-        nome_limpo = sanitizar_texto_luxo(l_data.get('nome', 'Loja'))
-        dist = calcular_distancia_real(lat_u, lon_u, l_data.get('lat'), l_data.get('lon'))
+    # --- COLUNA DA ESQUERDA (NAVEGAÇÃO) ---
+    with col_lateral:
+        st.markdown('<div class="bloco">### 🧭 Menu Principal</div>', unsafe_allow_html=True)
+        st.button("🏠 Home Timeline", use_container_width=True)
+        st.button("🏪 Minha Loja", use_container_width=True)
         
-        termo = busca.lower() if busca else ""
-        is_busca_loja = termo and termo in nome_limpo.lower()
-        is_busca_geral = not termo or (cat_ia == l_data.get('area'))
-
-        if is_busca_loja:
-            posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
-        elif is_busca_geral:
-            posts = db.collection("profissionais").document(l_id).collection("posts").where("destaque", "==", True).limit(1).stream()
-        else: continue
-
-        for p_doc in posts:
-            p = p_doc.to_dict()
-            st.markdown(f"""
-                <div class="card-luxo">
-                    <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
-                    <div class="info-luxo">
-                        <small style="color:#65676b; font-weight:bold;">{nome_limpo.upper()} • {dist}km</small>
-                        <h3 style="margin: 5px 0; border:none;">{sanitizar_texto_luxo(p.get('titulo'))}</h3>
-                        <div class="price-luxo">R$ {p.get('preco')}</div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button(f"SOLICITAR ATENDIMENTO", key=f"btn_{p_doc.id}", use_container_width=True):
-                db.collection("profissionais").document(l_id).update({"saldo": l_data['saldo'] - 1})
-                st.success(f"CONCIERGE LIBERADO: {l_data.get('whatsapp')}")
-                st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}", use_container_width=True)
-
-# ==============================================================================
-# 🏗️ CONSTRUTOR PRINCIPAL (MAIN MODULAR)
-# ==============================================================================
-with col_central:
-        renderizar_capa_fixa()
-        
-        # --- O NOVO MECANISMO ---
-        codigo_da_ia = carregar_bloco_dinamico_ia()
-        
-        if codigo_da_ia:
-            st.markdown('<div class="bloco-modular" style="border-left: 5px solid #28a745;">', unsafe_allow_html=True)
-            # A mágica: executa o código que você colou no painel
-            exec(codigo_da_ia) 
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Painel ADM (fica escondido no final ou na lateral)
+        # Painel do Arquiteto fica escondido aqui
         painel_adm_arquiteto()
 
-# ==============================================================================
-# 🏁 RODAPÉ E INICIALIZAÇÃO
-# ==============================================================================
-def rodape_inteligente():
-    st.write("---")
-    c1, c2, c3 = st.columns(3)
-    with c1: st.markdown("<small>🟢 SISTEMA PROTEGIDO</small>", unsafe_allow_html=True)
-    with c2: st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS ATIVO</small></div>", unsafe_allow_html=True)
-    with c3: st.markdown(f"<div style='text-align:right;'><small>v3.0 | {datetime.datetime.now().year}</small></div>", unsafe_allow_html=True)
+    # --- COLUNA CENTRAL (O CORAÇÃO DO SITE) ---
+    with col_central:
+        # 1. Capa Fixa no Topo
+        renderizar_capa_fixa()
 
+        # 2. CANTEIRO DE OBRAS (Onde a mágica do Arquiteto acontece)
+        codigo_da_ia = carregar_bloco_dinamico()
+        if codigo_da_ia:
+            st.markdown('<div class="bloco" style="border-left: 5px solid #28a745; background: #f8fff9;">', unsafe_allow_html=True)
+            st.caption("🧪 Módulo Ativo via Modo Arquiteto")
+            try:
+                # Executa o código que você colou no site
+                exec(codigo_da_ia)
+            except Exception as e:
+                st.error(f"Erro no código injetado: {e}")
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            # Bloco de aviso caso o canteiro esteja vazio
+            st.info("Canteiro de obras vazio. Use o Modo Arquiteto para dar vida a este espaço!")
+
+        # 3. Busca e Vitrine
+        st.markdown('<div class="bloco">', unsafe_allow_html=True)
+        st.text_input("", placeholder="O que você procura hoje?", key="busca_main")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        renderizar_vitrine_oficial()
+
+# ==============================================================================
+# 🏁 RODAPÉ E START
+# ==============================================================================
 if __name__ == "__main__":
-    try: main()
-    finally: rodape_inteligente()
+    try:
+        main()
+    finally:
+        st.write("---")
+        st.caption(f"🛡️ GeralJá Turbo v4.0 | {datetime.datetime.now().year} | Antivírus Ativo")
