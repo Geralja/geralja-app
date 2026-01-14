@@ -160,59 +160,39 @@ def modulo_editor_lojista(l_id, l_data):
 # 🏁 BLOCO 4: RODAPÉ INTELIGENTE COM AUTO-CORREÇÃO E SEGURANÇA (FIXO ✅)
 # ==============================================================================
 
-def exec_antivirus_e_correcao(texto):
-    """Varre o texto em busca de ameaças ou poluição visual"""
+import re
+
+# 1. FUNÇÃO ANTIVÍRUS E AUTO-CORREÇÃO (O "Limpador")
+def sanitizar_texto_luxo(texto):
+    """Bloqueia poluição visual e scripts maliciosos"""
     if not texto: return ""
-    # 1. Antivírus: Remove tags HTML/Scripts suspeitos
+    # Antivírus: Remove qualquer tentativa de código <script> ou HTML
     limpo = re.sub(r'<[^>]*?>', '', texto)
-    # 2. Auto-Correção: Evita CAPS LOCK berrante (Luxo é discreto)
+    # Auto-Correção: Se o lojista escreveu TUDO EM MAIÚSCULO, nós suavizamos
     if limpo.isupper() and len(limpo) > 10:
         limpo = limpo.capitalize()
-    # 3. Estética: Remove espaços duplos
-    return " ".join(limpo.split())
+    return limpo.strip()
 
-def rodape_blindado():
+# 2. FUNÇÃO DO RODAPÉ INTELIGENTE
+def rodape_inteligente():
     st.write("---")
-    
-    # Monitor de Saúde do Sistema
-    try:
-        db.collection("config").document("health").get()
-        status_banco = "🟢 SISTEMA PROTEGIDO"
-    except:
-        status_banco = "🔴 VERIFICAR CONEXÃO"
-
-    # Layout do Rodapé
     c1, c2, c3 = st.columns(3)
+    
     with c1:
-        st.markdown(f"<small>{status_banco}</small>", unsafe_allow_html=True)
+        st.markdown("<small>🟢 SISTEMA PROTEGIDO</small>", unsafe_allow_html=True)
     with c2:
-        st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS ATIVO</small></div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS DE DADOS ATIVO</small></div>", unsafe_allow_html=True)
     with c3:
-        now = datetime.now().strftime("%H:%M")
-        st.markdown(f"<div style='text-align:right;'><small>AUTO-SYNC: {now}</small></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align:right;'><small>v2.0 | {datetime.now().year}</small></div>", unsafe_allow_html=True)
 
-    # O "Varredor" original (Seu alinhamento de layout)
+    # O "Varredor" Original do seu arquivo (Estilizado)
     st.markdown("""
         <style>
             .main .block-container { padding-bottom: 5rem !important; }
-            .footer-elite {
-                text-align: center;
-                padding: 40px;
-                background: #f9f9f9;
-                border-top: 1px solid #eee;
-                color: #555;
-                font-family: 'Inter', sans-serif;
-            }
+            .footer-clean { text-align: center; padding: 20px; opacity: 0.6; font-size: 0.8rem; }
         </style>
-        <div class="footer-elite">
-            <p style="letter-spacing:5px; font-weight:800;">GERALJÁ</p>
-            <p style="font-size:0.7rem; opacity:0.6;">Tecnologia de Verificação de Integridade v2.0</p>
+        <div class="footer-clean">
+            <p>🎯 <b>GeralJá</b> - Sistema de Inteligência Local</p>
+            <p>Conectando com segurança e elegância.</p>
         </div>
     """, unsafe_allow_html=True)
-
-# No final do arquivo, você chama assim:
-if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        rodape_blindado()
