@@ -1,159 +1,148 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import requests
 import json
-import datetime
-import pandas as pd
 from datetime import datetime
 import pytz
 
-# ------------------------------------------------------------------------------
-# 1. CONFIGURAÇÕES E CONSTANTES
-# ------------------------------------------------------------------------------
-st.set_page_config(
-    page_title="GeralJá | Premium Pro",
-    page_icon="⚡",
-    layout="wide"
-)
+# --- CONFIGURAÇÃO ---
+st.set_page_config(page_title="GeralJá Social", layout="wide")
 
-PIX_OFICIAL = "11991853488"
-BONUS_WELCOME = 50.0  # Saldo inicial gratuito
-VALOR_CLIQUE = 2.00   # Quanto custa cada clique para o profissional
-
-# ------------------------------------------------------------------------------
-# 2. ESTILIZAÇÃO MODERNA (CSS)
-# ------------------------------------------------------------------------------
+# --- CSS ESTILO FACEBOOK / SOCIAL APP ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    .stButton>button {
+    /* Fundo suave de rede social */
+    .stApp { background-color: #f0f2f5; }
+    
+    /* Card estilo Post do Facebook */
+    .fb-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ddd;
+    }
+    
+    .pro-name {
+        color: #1c1e21;
+        font-weight: bold;
+        font-size: 1.1rem;
+        text-decoration: none;
+    }
+    
+    .verified-badge {
+        color: #1877f2;
+        font-size: 0.9rem;
+        margin-left: 5px;
+    }
+    
+    .category-pill {
+        background: #e4e6eb;
+        padding: 5px 15px;
         border-radius: 20px;
-        transition: all 0.3s ease;
-        background: linear-gradient(45deg, #00b4d8, #0077b6);
-        color: white;
+        font-size: 0.85rem;
+        color: #050505;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    /* Botão estilo 'Enviar Mensagem' */
+    div.stButton > button {
+        width: 100%;
+        background-color: #e4e6eb;
+        color: #050505;
         border: none;
+        font-weight: 600;
+        transition: 0.2s;
     }
-    .stButton>button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    
+    div.stButton > button:hover {
+        background-color: #d8dadf;
     }
-    .card {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+
+    /* Estilo para o topo azul */
+    .header-fb {
+        background-color: #ffffff;
+        padding: 10px 20px;
+        border-bottom: 1px solid #ddd;
         margin-bottom: 20px;
-        transition: 0.3s;
     }
-    .card:hover { border-color: #00b4d8; }
-    .status-online { color: #00ff88; font-weight: bold; }
-    .price-tag { background: #2a2a2a; padding: 5px 10px; border-radius: 10px; color: #ffcc00; }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------------------
-# 3. FIREBASE SETUP
-# ------------------------------------------------------------------------------
+# --- INICIALIZAÇÃO FIREBASE (Mesma lógica anterior) ---
 if not firebase_admin._apps:
-    try:
-        # Tenta carregar dos Secrets do Streamlit
-        fb_dict = json.loads(st.secrets["firebase"]["text"])
-        cred = credentials.Certificate(fb_dict)
-        firebase_admin.initialize_app(cred)
-    except Exception as e:
-        st.error(f"Erro ao conectar Firebase: {e}")
-
+    fb_dict = json.loads(st.secrets["firebase"]["text"])
+    cred = credentials.Certificate(fb_dict)
+    firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# ------------------------------------------------------------------------------
-# 4. FUNÇÕES AUXILIARES
-# ------------------------------------------------------------------------------
-def registrar_clique(pro_id, saldo_atual):
-    if saldo_atual >= VALOR_CLIQUE:
-        novo_saldo = saldo_atual - VALOR_CLIQUE
-        db.collection("profissionais").document(pro_id).update({"saldo": novo_saldo})
-        return True
-    return False
+# --- HEADER TIPO BARRA DE NAVEGAÇÃO ---
+st.markdown("""
+    <div class="header-fb">
+        <h2 style='color: #1877f2; margin:0;'>GeralJá <span style='font-size: 0.8rem; color: #65676b;'>Comunidade</span></h2>
+    </div>
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------------------
-# 5. INTERFACE PRINCIPAL
-# ------------------------------------------------------------------------------
-st.title("⚡ GeralJá Pro")
-st.caption("A plataforma mais rápida para encontrar profissionais qualificados.")
+# --- STORIES / CATEGORIAS ---
+st.write("### Categorias")
+cat_cols = st.columns(6)
+categorias = ["🏠 Reformas", "🧹 Limpeza", "💻 Tech", "🎨 Design", "🚗 Mecânico", "⚖️ Jurídico"]
+for i, cat in enumerate(categorias):
+    cat_cols[i].markdown(f"<div class='category-pill'>{cat}</div>", unsafe_allow_html=True)
 
-abas = st.tabs(["🔍 Encontrar Profissional", "💼 Para Profissionais", "⚙️ Admin"])
+st.divider()
 
-# --- ABA 1: BUSCA ---
-with abas[0]:
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        busca = st.text_input("O que você precisa hoje?", placeholder="Ex: Eletricista, Limpeza, Design...")
-    with col2:
-        categoria = st.selectbox("Categoria", ["Todas", "Reparos", "Limpeza", "Tecnologia", "Saúde"])
+# --- LAYOUT PRINCIPAL (3 Colunas: Filtros | Feed | Perfil) ---
+col_left, col_feed, col_right = st.columns([1, 2, 1])
 
-    # Lógica de Busca no Firebase
-    pros_ref = db.collection("profissionais")
-    query = pros_ref.where("saldo", ">", 0).stream() # Só mostra quem tem saldo
+with col_left:
+    st.markdown("#### Filtros")
+    st.text_input("🔍 Buscar no feed", placeholder="Ex: Eletricista...")
+    st.checkbox("Apenas Verificados")
+    st.checkbox("Mais Próximos")
 
-    cols = st.columns(3)
-    idx = 0
-    for doc in query:
+with col_feed:
+    # Lógica de puxar dados
+    pros_ref = db.collection("profissionais").where("saldo", ">", 0).stream()
+    
+    for doc in pros_ref:
         p = doc.to_dict()
-        p['id'] = doc.id
+        pid = doc.id
         
-        # Filtro simples de texto
-        if busca.lower() in p.get('nome', '').lower() or busca.lower() in p.get('servico', '').lower():
-            with cols[idx % 3]:
-                st.markdown(f"""
-                <div class="card">
-                    <h4>{p.get('nome')}</h4>
-                    <p style='font-size: 0.8em; color: #888;'>{p.get('servico')}</p>
-                    <span class="price-tag">⭐ {p.get('rating', '5.0')}</span>
-                    <p class="status-online">● Disponível Agora</p>
+        # HTML do Card
+        st.markdown(f"""
+            <div class="fb-card">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <div style="width: 40px; height: 40px; background: #1877f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 10px;">
+                        {p.get('nome')[0].upper()}
+                    </div>
+                    <div>
+                        <span class="pro-name">{p.get('nome')}</span>
+                        <span class="verified-badge">✔ Verificado</span><br>
+                        <small style="color: #65676b;">Publicado em: 14 jan 2026</small>
+                    </div>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                if st.button(f"📞 Ver Contato", key=p['id']):
-                    if registrar_clique(p['id'], p.get('saldo', 0)):
-                        st.success(f"WhatsApp: {p.get('whatsapp')}")
-                        st.info("Diga que viu no GeralJá!")
-                    else:
-                        st.warning("Este profissional está temporariamente indisponível.")
-            idx += 1
-
-# --- ABA 2: CADASTRO ---
-with abas[1]:
-    st.header("Seja um parceiro")
-    with st.form("form_cadastro"):
-        nome = st.text_input("Nome Completo")
-        zap = st.text_input("WhatsApp (com DDD)")
-        servico = st.text_input("Sua Especialidade")
+                <p style="color: #050505;">{p.get('servico')}</p>
+                <hr style="border: 0.5px solid #eee;">
+            </div>
+        """, unsafe_allow_html=True)
         
-        if st.form_submit_button("Cadastrar e Ganhar Bônus"):
-            novo_pro = {
-                "nome": nome,
-                "whatsapp": zap,
-                "servico": servico,
-                "saldo": BONUS_WELCOME,
-                "data_adesao": datetime.now(pytz.timezone('America/Sao_Paulo')),
-                "rating": 5.0
-            }
-            db.collection("profissionais").add(novo_pro)
-            st.balloons()
-            st.success(f"Bem-vindo! Você ganhou R$ {BONUS_WELCOME} de saldo inicial!")
+        # Botão de Interação
+        if st.button(f"💬 Entrar em contato com {p.get('nome').split()[0]}", key=pid):
+            # Lógica de cobrança de saldo
+            novo_saldo = p.get('saldo', 0) - 2.0
+            db.collection("profissionais").document(pid).update({"saldo": novo_saldo})
+            st.success(f"WhatsApp: {p.get('whatsapp')}")
 
-# --- ABA 3: ADMIN ---
-with abas[2]:
-    chave = st.text_input("Chave Mestra", type="password")
-    if chave == st.secrets.get("ADMIN_KEY", "admin123"):
-        st.write("### Gestão de Saldo")
-        # Lista simples para o admin gerenciar
-        pros = db.collection("profissionais").stream()
-        for doc in pros:
-            p = doc.to_dict()
-            col_a, col_b = st.columns([3, 1])
-            col_a.write(f"{p.get('nome')} | Saldo: R$ {p.get('saldo')}")
-            if col_b.button("+R$10", key=f"add_{doc.id}"):
-                db.collection("profissionais").document(doc.id).update({"saldo": p.get('saldo', 0) + 10})
-                st.rerun()
+with col_right:
+    st.markdown("#### Seu Perfil")
+    with st.container():
+        st.markdown("""
+            <div class="fb-card" style="text-align: center;">
+                <p><b>R$ 50,00</b><br><small>Saldo de Impulsionamento</small></p>
+            </div>
+        """, unsafe_allow_html=True)
+        if st.button("➕ Recarregar"):
+            st.info("PIX: " + st.secrets.get("PIX", "11991853488"))
