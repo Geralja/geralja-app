@@ -105,6 +105,34 @@ def renderizar_capa_fixa():
             </div>
         </div>
     """, unsafe_allow_html=True)
+    # ==============================================================================
+# 🔐 3. O MECANISMO DE INJEÇÃO (SEU PAINEL ADM)
+# ==============================================================================
+def carregar_bloco_dinamico():
+    """Lê o código que você colou no ADM e traz para o site"""
+    try:
+        doc = db.collection("configuracoes").document("layout_ia").get()
+        if doc.exists:
+            return doc.to_dict().get("codigo_injetado", "")
+    except: pass
+    return ""
+
+def painel_adm_arquiteto():
+    """Espaço para você colar o código e a IA organizar no site"""
+    with st.sidebar: # Fica escondido na lateral esquerda
+        st.write("---")
+        with st.expander("🔐 MODO ARQUITETO (ADM)"):
+            senha = st.text_input("Senha", type="password", key="senha_adm")
+            if senha == "123": # Altere sua senha aqui
+                st.subheader("Injetor de Funções")
+                novo_cod = st.text_area("Cole o código aqui:", height=300, placeholder="Ex: st.button('Oi')")
+                if st.button("🚀 SOLDAR NO SITE"):
+                    db.collection("configuracoes").document("layout_ia").set({
+                        "codigo_injetado": novo_cod,
+                        "data": datetime.datetime.now()
+                    })
+                    st.success("Soldado com sucesso! Atualize a página.")
+                    st.rerun()
 
 # ==============================================================================
 # 📸 BLOCO: GESTÃO DO LOJISTA (CANTEIRO DE OBRAS 🛠️)
