@@ -10,7 +10,7 @@ import pandas as pd
 import unicodedata
 
 # 1. CONFIGURAÇÃO DE TELA (FIXO ✅)
-st.set_page_config(page_title="GeralJá | Sistema de Elite", layout="wide")
+st.set_page_config(page_title="GeralJá | Timeline Elite", layout="wide")
 
 # ==============================================================================
 # 🛡️ BLOCO DE SEGURANÇA E IMPORTAÇÕES (FIXO ✅)
@@ -21,7 +21,6 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPS_DISPONIVEL = False
 
-# Sanitização (Antivírus de texto)
 def sanitizar_texto_luxo(texto):
     if not texto: return ""
     limpo = re.sub(r'<[^>]*?>', '', texto)
@@ -36,7 +35,7 @@ def buscar_localizacao_segura():
             if loc and 'coords' in loc:
                 return loc['coords']['latitude'], loc['coords']['longitude']
         except: pass
-    return -23.5505, -46.6333 # SP Padrão
+    return -23.5505, -46.6333 
 
 # ==============================================================================
 # 🔒 BLOCO 0: CONEXÃO FIREBASE (FIXO ✅)
@@ -71,13 +70,14 @@ def calcular_distancia_real(lat1, lon1, lat2, lon2):
 # ==============================================================================
 def renderizar_vitrine_luxo(busca, lat_u, lon_u):
     cat_ia = ia_mestra_processar(busca)
+    
+    # CSS dos Cards na Timeline
     st.markdown("""
         <style>
-        .card-luxo { background: white; border-radius: 25px; border: 1px solid #eee; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; }
-        .img-luxo { width: 100%; height: 380px; object-fit: cover; }
-        .info-luxo { padding: 25px; }
-        .price-luxo { font-size: 1.5rem; font-weight: 800; color: #1a1a1a; }
-        .loja-tag { font-size: 0.7rem; letter-spacing: 2px; color: #888; font-weight: bold; }
+        .card-luxo { background: white; border-radius: 15px; border: 1px solid #e1e4e8; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
+        .img-luxo { width: 100%; height: 320px; object-fit: cover; }
+        .info-luxo { padding: 20px; }
+        .price-luxo { font-size: 1.4rem; font-weight: 800; color: #1a1a1a; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -104,103 +104,67 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
                 <div class="card-luxo">
                     <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
                     <div class="info-luxo">
-                        <div class="loja-tag">{nome_limpo.upper()} • {dist}km</div>
-                        <h2 style="margin: 10px 0;">{sanitizar_texto_luxo(p.get('titulo'))}</h2>
+                        <small style="color:#65676b; font-weight:bold;">{nome_limpo.upper()} • {dist}km</small>
+                        <h3 style="margin: 5px 0;">{sanitizar_texto_luxo(p.get('titulo'))}</h3>
                         <div class="price-luxo">R$ {p.get('preco')}</div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
             
-            if st.button(f"SOLICITAR ATENDIMENTO", key=f"btn_{p_doc.id}"):
+            if st.button(f"SOLICITAR ATENDIMENTO", key=f"btn_{p_doc.id}", use_container_width=True):
                 db.collection("profissionais").document(l_id).update({"saldo": l_data['saldo'] - 1})
                 st.success(f"CONCIERGE LIBERADO: {l_data.get('whatsapp')}")
-                st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}")
+                st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}", use_container_width=True)
 
 # ==============================================================================
-# 🏗️ CONSTRUTOR PRINCIPAL (ESPAÇO ELÁSTICO)
+# 🏗️ CONSTRUTOR PRINCIPAL (MODULAR E ELÁSTICO)
 # ==============================================================================
 def main():
-    # 1. PEÇAS FIXAS DE FUNDAÇÃO (GPS e IA)
-    lat, lon = buscar_localizacao_segura()
-    
-    # 2. 🚀 ÁREA DE TESTE (PRIORIDADE MÁXIMA)
-    # Tudo o que estiver nesta caixa aparece PRIMEIRO para sua avaliação.
-    st.markdown("### 🧪 BLOCO EM TESTE")
-    with st.container():
-        # EXEMPLO: Se estivéssemos testando o novo Editor de 50 Créditos:
-        # modulo_editor_lojista_TESTE() 
-        st.info("Aguardando novo bloco para teste... O espaço está reservado aqui no topo.")
-    
-    st.write("---") # Divisor visual entre Teste e Fixo
-def main():
-    # 1. CONFIGURAÇÃO DE LOCALIZAÇÃO (O Motor invisível)
     lat, lon = buscar_localizacao_segura()
 
-    # 2. CSS PARA CRIAR O EFEITO DE "BLOCOS" (ESTILO TIMELINE)
+    # Estilização da Timeline (Fundo cinza, blocos brancos)
     st.markdown("""
         <style>
-        .bloco-modular {
-            background-color: #ffffff;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid #f0f2f5;
-        }
-        .stApp { background-color: #f0f2f5; } /* Cor de fundo estilo rede social */
+        .bloco-modular { background-color: #ffffff; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f0f2f5; }
+        .stApp { background-color: #f0f2f5; }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- INÍCIO DA TIMELINE ---
     col_lateral, col_central = st.columns([1, 2.5])
 
-    # 📦 BLOCO LATERAL (Navegação/Perfil)
+    # 📦 BLOCO LATERAL
     with col_lateral:
         st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        st.image("https://via.placeholder.com/100", width=80) # Logo ou Foto
-        st.markdown("### Explorar")
-        st.button("🏠 Início", use_container_width=True)
-        st.button("🏪 Minha Loja", use_container_width=True)
+        st.markdown("### 🧭 Explorar")
+        st.button("🏠 Home Feed", use_container_width=True)
+        st.button("🏪 Minha Maison", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Bloco de Status do Antivírus
         st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        st.caption("🛡️ Segurança GeralJá")
-        st.success("Dados Sanitizados")
+        st.caption("🛡️ STATUS DE SEGURANÇA")
+        st.success("Antivírus Ativo")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 📦 BLOCO CENTRAL (O Feed / Vitrine)
+    # 📦 BLOCO CENTRAL (Timeline)
     with col_central:
-        # Espaço para o "Canteiro de Obras" (Onde testaremos coisas novas)
-        with st.container():
-            st.markdown('<div class="bloco-modular" style="border-left: 5px solid #007bff;">', unsafe_allow_html=True)
-            st.write("🧪 **Canteiro de Obras:** Testando novo Editor...")
-            # Aqui entrará a função que estivermos testando
-            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # 🚀 1. CANTEIRO DE OBRAS (Prioridade Máxima - Espaço Elástico)
+        st.markdown('<div class="bloco-modular" style="border-left: 5px solid #007bff;">', unsafe_allow_html=True)
+        st.markdown("### 🧪 BLOCO EM TESTE")
+        # --- O NOVO BLOCO ENTRA AQUI ---
+        st.info("O espaço está reservado. O próximo módulo que testarmos aparecerá neste bloco azul.")
+        # -------------------------------
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # O Feed de Produtos (A Vitrine Oficial)
+        # 💎 2. VITRINE OFICIAL
         st.markdown('<div class="bloco-modular">', unsafe_allow_html=True)
-        busca = st.text_input("", placeholder="O que você está procurando?", key="busca_timeline")
+        busca = st.text_input("", placeholder="Busque por produtos ou lojas...", key="busca_timeline")
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Renderiza a vitrine dentro da timeline
         renderizar_vitrine_luxo(busca, lat, lon)
-
-# --- FIM DA TIMELINE ---
-    # 3. 🏠 CONTEÚDO FIXO (CEDENDO ESPAÇO)
-    # Este conteúdo "desce" para dar lugar ao teste acima.
-    abas = st.tabs(["💎 VITRINE OFICIAL", "🏪 CONFIGURAÇÕES"])
-    
-    with abas[0]:
-        st.markdown("<h1 style='text-align:center;'>GERALJÁ</h1>", unsafe_allow_html=True)
-        busca = st.text_input("", placeholder="Busque por loja ou produto...", key="busca_fixa")
-        renderizar_vitrine_luxo(busca, lat, lon)
-    
-    with abas[1]:
-        st.write("Configurações do sistema.")
 
 # ==============================================================================
-# 🏁 O RESTO DO CÓDIGO (BANCO, IA, RODAPÉ) SEGUE IGUAL
+# 🏁 RODAPÉ FINALIZADOR
 # ==============================================================================
 def rodape_inteligente():
     st.write("---")
