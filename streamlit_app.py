@@ -4,7 +4,12 @@ from firebase_admin import credentials, firestore
 import base64, json, math, re, time, io
 from datetime import datetime
 from PIL import Image
+import requests  # Faltava este!
+# ... outros imports ...
 
+PIX_OFICIAL = "11991853488"
+BONUS_WELCOME = 50 # Faltava este!
+# ... restante das constantes ...
 # ==============================================================================
 # 1. CONFIGURAÇÃO DE AMBIENTE (Baseado na sua v1)
 # ==============================================================================
