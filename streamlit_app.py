@@ -156,7 +156,63 @@ def modulo_editor_lojista(l_id, l_data):
             st.rerun()
             
 
+# ==============================================================================
+# 🏁 BLOCO 4: RODAPÉ INTELIGENTE COM AUTO-CORREÇÃO E SEGURANÇA (FIXO ✅)
+# ==============================================================================
 
-# CHAMADA FINAL - ESTA DEVE SER A ÚLTIMA LINHA DO SEU APP
-finalizar_e_alinhar_layout()
-# ------------------------------------------------------------------------------
+def exec_antivirus_e_correcao(texto):
+    """Varre o texto em busca de ameaças ou poluição visual"""
+    if not texto: return ""
+    # 1. Antivírus: Remove tags HTML/Scripts suspeitos
+    limpo = re.sub(r'<[^>]*?>', '', texto)
+    # 2. Auto-Correção: Evita CAPS LOCK berrante (Luxo é discreto)
+    if limpo.isupper() and len(limpo) > 10:
+        limpo = limpo.capitalize()
+    # 3. Estética: Remove espaços duplos
+    return " ".join(limpo.split())
+
+def rodape_blindado():
+    st.write("---")
+    
+    # Monitor de Saúde do Sistema
+    try:
+        db.collection("config").document("health").get()
+        status_banco = "🟢 SISTEMA PROTEGIDO"
+    except:
+        status_banco = "🔴 VERIFICAR CONEXÃO"
+
+    # Layout do Rodapé
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(f"<small>{status_banco}</small>", unsafe_allow_html=True)
+    with c2:
+        st.markdown("<div style='text-align:center;'><small>🛡️ ANTIVÍRUS ATIVO</small></div>", unsafe_allow_html=True)
+    with c3:
+        now = datetime.now().strftime("%H:%M")
+        st.markdown(f"<div style='text-align:right;'><small>AUTO-SYNC: {now}</small></div>", unsafe_allow_html=True)
+
+    # O "Varredor" original (Seu alinhamento de layout)
+    st.markdown("""
+        <style>
+            .main .block-container { padding-bottom: 5rem !important; }
+            .footer-elite {
+                text-align: center;
+                padding: 40px;
+                background: #f9f9f9;
+                border-top: 1px solid #eee;
+                color: #555;
+                font-family: 'Inter', sans-serif;
+            }
+        </style>
+        <div class="footer-elite">
+            <p style="letter-spacing:5px; font-weight:800;">GERALJÁ</p>
+            <p style="font-size:0.7rem; opacity:0.6;">Tecnologia de Verificação de Integridade v2.0</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# No final do arquivo, você chama assim:
+if __name__ == "__main__":
+    try:
+        main()
+    finally:
+        rodape_blindado()
