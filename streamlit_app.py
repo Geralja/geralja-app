@@ -226,6 +226,20 @@ def renderizar_vitrine_luxo(busca, lat_u, lon_u):
 # ==============================================================================
 # 🏗️ CONSTRUTOR PRINCIPAL (MAIN MODULAR)
 # ==============================================================================
+with col_central:
+        renderizar_capa_fixa()
+        
+        # --- O NOVO MECANISMO ---
+        codigo_da_ia = carregar_bloco_dinamico_ia()
+        
+        if codigo_da_ia:
+            st.markdown('<div class="bloco-modular" style="border-left: 5px solid #28a745;">', unsafe_allow_html=True)
+            # A mágica: executa o código que você colou no painel
+            exec(codigo_da_ia) 
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Painel ADM (fica escondido no final ou na lateral)
+        painel_adm_arquiteto()
 def main():
     lat, lon = buscar_localizacao_segura()
 
