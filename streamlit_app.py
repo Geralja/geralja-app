@@ -5,142 +5,119 @@ import base64
 import json
 import math
 import unicodedata
+from datetime import datetime
 from streamlit_js_eval import get_geolocation
 
-# ==========================================================
-# 0. CONEXÃO E ESTRUTURA DE DADOS (FIXO ✅)
-# ==========================================================
+# ==============================================================================
+# 🧱 BLOCO 0: IGNIÇÃO E BANCO DE DADOS (FIXO ✅)
+# ==============================================================================
 if not firebase_admin._apps:
     try:
+        # Puxa sua chave do Streamlit Secrets
         fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
     except Exception as e:
-        st.error(f"Erro na ignição do Banco: {e}")
+        st.error(f"Erro na conexão: {e}")
+
 db = firestore.client()
 
-# ==========================================================
-# 1. MOTOR DE BUSCA DO BANCO (ESQUELETO DO TEU ARQUIVO) - FIXO ✅
-# ==========================================================
-
-def buscar_lojas_ativas():
-    """Puxa do teu banco apenas quem está aprovado e tem saldo"""
-    # Usando a coleção 'profissionais' que já tens no banco
-    return db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
-
-def buscar_posts_da_loja(id_loja):
-    """Puxa os produtos (posts) da sub-coleção que criamos"""
-    return db.collection("profissionais").document(id_loja).collection("posts").where("ativo", "==", True).stream()
+# ==============================================================================
+# 🧱 BLOCO 1: O CÉREBRO (IA E GPS) - (FIXO ✅)
+# ==============================================================================
 
 def ia_mestra_processar(texto):
-    """IA original para mapear categorias do teu banco"""
     if not texto: return None
     t = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower()
-    mapa = {
-        "pizza": "Pizzaria", "fome": "Pizzaria", "carro": "Mecânico", 
-        "luz": "Eletricista", "roupa": "Moda", "celular": "Informática"
-    }
+    mapa = {"pizza": "Pizzaria", "hamburguer": "Lanchonete", "mecanico": "Mecânico", "luz": "Eletricista", "roupa": "Moda"}
     for chave, cat in mapa.items():
         if chave in t: return cat
     return None
 
-# ==========================================================
-# 2. ÁREA DE TESTE: CONSTRUTOR DE VITRINE LUXO 🛠️
-# ==========================================================
+def calcular_distancia_real(lat1, lon1, lat2, lon2):
+    if None in [lat1, lon1, lat2, lon2]: return 999
+    R = 6371
+    dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
 
-def bloco_vitrine_TESTE(busca, categoria_ia, lat_user, lon_user):
-    """
-    TESTE: Interface de Alto Padrão em Blocos.
-    O foco aqui é o PRODUTO. O nome da loja é o detalhe.
-    """
-    # 1. CSS DE DESIGN MODERNO (Limpo e Imersivo)
+# ==============================================================================
+# 🧱 BLOCO 2: DESIGN DE VITRINE "REVISTA DE LUXO" - (APROVADO ✅)
+# ==============================================================================
+
+def renderizar_vitrine_luxo(busca, lat_u, lon_u):
+    cat_ia = ia_mestra_processar(busca)
+    
+    # CSS de Elite
     st.markdown("""
         <style>
-        .card-elite {
-            background: #fff;
-            border-radius: 20px;
-            border: 1px solid #f0f0f0;
-            margin-bottom: 30px;
-            transition: 0.4s;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.03);
-        }
-        .card-elite:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-        }
-        .img-vitrine {
-            width: 100%;
-            height: 350px;
-            object-fit: cover;
-            border-radius: 20px 20px 0 0;
-        }
-        .info-vitrine {
-            padding: 20px;
-            text-align: left;
-        }
-        .loja-tag {
-            font-size: 0.7rem;
-            color: #999;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 700;
-        }
-        .preco-elite {
-            color: #1a1a1a;
-            font-size: 1.4rem;
-            font-weight: 800;
-        }
+        .card-luxo { background: #fff; border-radius: 25px; border: 1px solid #eee; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; }
+        .img-luxo { width: 100%; height: 400px; object-fit: cover; }
+        .info-luxo { padding: 25px; }
+        .price-luxo { font-size: 1.5rem; font-weight: 800; color: #000; }
         </style>
     """, unsafe_allow_html=True)
 
-    # 2. BUSCA NO BANCO REAL (Usando o motor fixo do Bloco 1)
+    # Busca no seu Banco de Dados Real
     lojas = db.collection("profissionais").where("aprovado", "==", True).where("saldo", ">=", 1).stream()
 
     for loja in lojas:
-        l_data = loja.to_dict()
         l_id = loja.id
+        l_data = loja.to_dict()
+        dist = calcular_distancia_real(lat_u, lon_u, l_data.get('lat'), l_data.get('lon'))
         
-        # Filtro de IA e Nome (O seu esqueleto potente)
-        if busca and not (busca.lower() in l_data.get('nome','').lower() or categoria_ia == l_data.get('area')):
+        # Filtro de Busca
+        if busca and not (busca.lower() in l_data.get('nome','').lower() or cat_ia == l_data.get('area')):
             continue
-            
-        # Puxa os Posts (Produtos) de cada loja
+
+        # Puxa os Posts de cada Loja
         posts = db.collection("profissionais").document(l_id).collection("posts").where("ativo", "==", True).stream()
-        
         for p_doc in posts:
             p = p_doc.to_dict()
-            
-            # Montagem do Card de Luxo
-            col1, col2, col3 = st.columns([1, 6, 1]) # Centraliza o bloco na tela
-            with col2:
-                img_src = f"data:image/png;base64,{p.get('foto')}" if p.get('foto') else "https://via.placeholder.com/600x400"
-                
-                st.markdown(f"""
-                    <div class="card-elite">
-                        <img src="{img_src}" class="img-vitrine">
-                        <div class="info-vitrine">
-                            <span class="loja-tag">{l_data.get('nome')}</span>
-                            <h3 style="margin: 5px 0; color:#000;">{p.get('titulo')}</h3>
-                            <div class="preco-elite">R$ {p.get('preco')}</div>
-                        </div>
+            st.markdown(f"""
+                <div class="card-luxo">
+                    <img src="data:image/png;base64,{p.get('foto')}" class="img-luxo">
+                    <div class="info-luxo">
+                        <small>{l_data.get('nome').upper()} • {dist}km</small>
+                        <h2>{p.get('titulo')}</h2>
+                        <div class="price-luxo">R$ {p.get('preco')}</div>
                     </div>
-                """, unsafe_allow_html=True)
-                
-                # BOTÃO DE AÇÃO (Onde o 1 crédito é cobrado)
-                if st.button(f"S'ENTRETENIR / CONTATAR {l_data.get('nome').upper()}", key=f"btn_{p_doc.id}"):
-                    # Executa a função fixa de cobrança
-                    if l_data['saldo'] >= 1:
-                        db.collection("profissionais").document(l_id).update({"saldo": l_data['saldo'] - 1})
-                        st.success(f"WHATSAPP: {l_data.get('whatsapp')}")
-                        st.link_button("ABRIR WHATSAPP", f"https://wa.me/55{l_data.get('whatsapp')}")
-                    else:
-                        st.error("Loja indisponível no momento.")
-                
-                st.write("") # Espaçador
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button(f"FALAR COM {l_data.get('nome').upper()}", key=f"btn_{p_doc.id}"):
+                # Cobrança de 1 crédito
+                db.collection("profissionais").document(l_id).update({"saldo": l_data['saldo'] - 1})
+                st.success(f"Contato: {l_data.get('whatsapp')}")
 
-# ==========================================================
-# 3. FINALIZADOR (VARREDOR ORIGINAL) ✅
-# ==========================================================
+# ==============================================================================
+# 🏗️ CONSTRUTOR PRINCIPAL (CANTEIRO DE OBRAS)
+# ==============================================================================
+
+def main():
+    st.set_page_config(page_title="GeralJá | Elite", layout="wide")
+    
+    # LOCALIZAÇÃO GPS
+    loc = get_geolocation()
+    lat = loc['coords']['latitude'] if loc else -23.5505
+    lon = loc['coords']['longitude'] if loc else -46.6333
+
+    tab1, tab2 = st.tabs(["🔍 EXPLORAR VITRINE", "🏪 MINHA MAISON"])
+
+    with tab1:
+        termo = st.text_input("", placeholder="O que você deseja buscar hoje?")
+        renderizar_vitrine_luxo(termo, lat, lon)
+
+    with tab2:
+        st.write("Bloco do Editor em Construção...")
+
+# ==============================================================================
+# 🏁 RODAPÉ E VARREDOR (FIXO NA ORIGEM ✅)
+# ==============================================================================
 if __name__ == "__main__":
-    main()
-    # Puxa o seu rodapé finalizador aqui
-    st.markdown("<div style='text-align:center; padding:20px; opacity:0.5;'>🎯 GeralJá | Banco de Dados Conectado</div>", unsafe_allow_html=True)
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Erro no Motor Principal: {e}")
+    
+    st.write("---")
+    st.markdown("<div style='text-align:center; opacity:0.5;'>GeralJá Core System v2.0</div>", unsafe_allow_html=True)
