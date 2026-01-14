@@ -3,84 +3,75 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64
 import json
-from datetime import datetime
+import math
+import unicodedata
 from streamlit_js_eval import get_geolocation
 
 # ==============================================================================
-# 🗃️ BLOCOS FIXOS (APROVADOS E IMUTÁVEIS)
-# Colocamos aqui o que já é lei no seu projeto.
+# 0. CONFIGURAÇÃO DE AMBIENTE (FIXO)
 # ==============================================================================
-
-def inicializar_firebase():
-    """FIXO: Conexão segura com o Banco"""
-    if not firebase_admin._apps:
-        try:
-            fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
-            firebase_admin.initialize_app(credentials.Certificate(fb_dict))
-        except: pass
-    return firestore.client()
-
-db = inicializar_firebase()
-
-def cobrar_lead(id_loja, saldo_atual):
-    """FIXO: Lógica de 1 crédito por contato/ligação"""
-    if saldo_atual >= 1:
-        novo_saldo = saldo_atual - 1
-        db.collection("profissionais").document(id_loja).update({"saldo": novo_saldo})
-        return True
-    return False
+if not firebase_admin._apps:
+    try:
+        fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
+        firebase_admin.initialize_app(credentials.Certificate(fb_dict))
+    except: pass
+db = firestore.client()
 
 # ==============================================================================
-# 🛠️ BLOCOS EM TESTE (MÓDULOS QUE ESTAMOS CONSTRUINDO AGORA)
-# Aqui é onde o design de luxo e as novas funções são testadas.
-# ==========================================================
+# 1. MOTOR DE INTELIGÊNCIA E GPS (ESQUELETO POTENTE - FIXO ✅)
+# ==============================================================================
 
-def bloco_vitrine_luxo_TESTE():
-    """
-    TESTE: Aqui estamos montando a vitrine que não parece XPG.
-    Após sua aprovação, ela sobe para os BLOCOS FIXOS.
-    """
-    st.markdown('<h1 style="text-align:center; color:#d4af37;">COLEÇÃO EXCLUSIVA</h1>', unsafe_allow_html=True)
-    # Espaço para o design que estamos validando...
-    st.write("Visual em desenvolvimento...")
+def ia_mestra_processar(texto):
+    """Analisa o texto e extrai a intenção real (Baseado no seu original)"""
+    if not texto: return None
+    t = "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower()
+    # Mapa de conceitos que você aprovou
+    mapa = {
+        "pizza": "Pizzaria", "fome": "Pizzaria", "hamburguer": "Lanchonete",
+        "mecanico": "Mecânico", "carro": "Mecânico", "luz": "Eletricista",
+        "roupa": "Moda", "celular": "Informática", "limpeza": "Diarista"
+    }
+    for chave, cat in mapa.items():
+        if chave in t: return cat
+    return None
+
+def calcular_distancia_real(lat1, lon1, lat2, lon2):
+    """Cálculo Matemático Haversine (Seu original)"""
+    if None in [lat1, lon1, lat2, lon2]: return 999
+    R = 6371 # Raio da Terra
+    dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a))), 1)
 
 # ==============================================================================
-# 🏗️ CONSTRUTOR PRINCIPAL (CANTEIRO DE OBRAS)
-# Onde as caixas são empilhadas para teste.
+# 2. CANTEIRO DE OBRAS (ÁREA DE TESTE - ONDE VAMOS MEXER AGORA 🛠️)
 # ==============================================================================
 
 def main():
-    # 1. Carrega o esqueleto fixo do seu arquivo original (CSS de Modo Claro/Escuro)
-    st.session_state.tema_claro = st.toggle("☀️ MODO CLARO", value=True)
+    st.markdown("<h1 style='text-align:center;'>GERALJÁ v2.0</h1>", unsafe_allow_html=True)
     
-    # 2. Localização (Bloco Potente do seu arquivo)
+    # PEGAR LOCALIZAÇÃO ATIVA (Sua função potente)
     loc = get_geolocation()
-    
-    # 3. Chama as Abas de Navegação
-    aba_vitrine, aba_loja, aba_admin = st.tabs(["💎 VITRINE", "🏪 MINHA MAISON", "👑 COMANDO"])
-    
+    user_lat = loc['coords']['latitude'] if loc else -23.5505
+    user_lon = loc['coords']['longitude'] if loc else -46.6333
+
+    aba_vitrine, aba_loja = st.tabs(["💎 VITRINE", "🏪 MINHA MAISON"])
+
     with aba_vitrine:
-        # AQUI É O LOCAL DE TESTE DA VITRINE
-        bloco_vitrine_luxo_TESTE()
-
-    with aba_loja:
-        # AQUI TESTAREMOS O EDITOR DE 50 CRÉDITOS
-        st.write("Editor em manutenção...")
+        st.write("### Teste de Busca Inteligente")
+        busca = st.text_input("O que você precisa?")
+        categoria_detectada = ia_mestra_processar(busca)
+        
+        if categoria_detectada:
+            st.info(f"IA Detectou que você procura por: **{categoria_detectada}**")
+        
+        # AQUI ENTRARÁ O PRÓXIMO BLOCO DE DESIGN
+        st.warning("Aguardando construção do Bloco de Design de Luxo...")
 
 # ==============================================================================
-# 🏁 RODAPÉ E FINALIZADOR (FIXO NO LOCAL DE ORIGEM)
-# Só é removido com SENHA MESTRA.
+# 3. FINALIZADOR (VARREDOR FIXO ✅)
 # ==============================================================================
-
-def finalizar_layout_FIXO():
-    """O 'Varredor' que você criou para alinhar tudo no final"""
-    st.write("---")
-    st.markdown("""
-        <div style="text-align: center; opacity: 0.7; font-size: 0.8rem;">
-            <p>🎯 <b>GeralJá</b> | v2.0 - Sistema de Inteligência Local</p>
-        </div>
-    """, unsafe_allow_html=True)
-
 if __name__ == "__main__":
     main()
-    finalizar_layout_FIXO()
+    st.write("---")
+    st.markdown("<div style='text-align:center; opacity:0.5;'>GeralJá Core System v2.0</div>", unsafe_allow_html=True)
