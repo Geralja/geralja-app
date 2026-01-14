@@ -159,14 +159,3 @@ def modulo_editor_lojista(l_id, l_data):
 # ==============================================================================
 # 🧹 O VARREDOR (RODAPÉ FINALIZADOR - FIXO ✅)
 # ==============================================================================
-def finalizar_e_alinhar_layout():
-    st.write("---")
-    st.markdown("""
-        <div style="text-align: center; opacity: 0.7; font-size: 0.8rem; padding: 20px;">
-            <p>🎯 <b>GeralJá</b> - Sistema de Inteligência Local</p>
-            <p>v2.0 | © 2026 Todos os direitos reservados</p>
-        </div>
-    """, unsafe_allow_html=True)
-if __name__ == "__main__":
-   main()
-    finalizar_e_alinhar_layout()
