@@ -169,5 +169,6 @@ def finalizar_e_alinhar_layout():
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
+   
     main()
     finalizar_e_alinhar_layout()
