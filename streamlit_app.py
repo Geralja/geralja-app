@@ -32,12 +32,61 @@ st.markdown("""
 # ------------------------------------------------------------------------------
 # 4. FUNÇÕES AUXILIARES
 # ------------------------------------------------------------------------------
-def registrar_clique(pro_id, saldo_atual):
-    if saldo_atual >= VALOR_CLIQUE:
-        novo_saldo = saldo_atual - VALOR_CLIQUE
-        db.collection("profissionais").document(pro_id).update({"saldo": novo_saldo})
-        return True
-    return False
+# --- ABA 1: FEED & BUSCA (VERSÃO BLINDADA CONTRA ERROS) ---
+with menu[0]:
+    st.subheader("Profissionais e Trabalhos")
+    busca_termo = st.text_input("🔍 O que você precisa?", placeholder="Ex: Pintor, Elétrica, Limpeza...")
+    
+    if loc:
+        u_lat = loc['coords']['latitude']
+        u_lon = loc['coords']['longitude']
+        
+        profs_ref = db.collection("profissionais").stream()
+        lista_final = []
+        
+        for p in profs_ref:
+            dados = p.to_dict()
+            dados['id'] = p.id
+            
+            # Tenta pegar o telefone de qualquer jeito (telefone ou zap)
+            tel_final = dados.get('telefone') or dados.get('zap') or dados.get('whatsapp')
+            dados['tel_corrigido'] = tel_final
+            
+            dados['distancia'] = GeralJaEngine.calcular_distancia(u_lat, u_lon, dados.get('lat'), dados.get('lon'))
+            
+            if busca_termo.lower() in dados.get('area', '').lower() or busca_termo.lower() in dados.get('nome', '').lower() or busca_termo == "":
+                lista_final.append(dados)
+        
+        lista_final = sorted(lista_final, key=lambda x: (x.get('saldo', 0), -x['distancia']), reverse=True)
+
+        for prof in lista_final:
+            with st.container(border=True):
+                col_foto, col_info = st.columns([1, 2])
+                
+                with col_foto:
+                    posts_ref = db.collection("postagens").where("zap_prof", "==", prof['id']).limit(3).get()
+                    if posts_ref:
+                        posts_ordenados = sorted([doc.to_dict() for doc in posts_ref], key=lambda x: x.get('data', ''), reverse=True)
+                        st.image(f"data:image/jpeg;base64,{posts_ordenados[0]['foto']}", use_container_width=True)
+                    else:
+                        st.info("📸 Sem fotos")
+                
+                with col_info:
+                    st.subheader(prof['nome'])
+                    st.write(f"💼 **Especialidade:** {prof.get('area', 'Geral')}")
+                    st.write(f"📍 **Distância:** {prof['distancia']:.1f} km")
+                    
+                    if prof.get('saldo', 0) > 0:
+                        st.markdown("⭐ **PROFISSIONAL EM DESTAQUE**")
+                    
+                    # Só mostra o botão se houver um número de telefone
+                    if prof['tel_corrigido']:
+                        num_limpo = re.sub(r'\D', '', str(prof['tel_corrigido']))
+                        st.link_button(f"Falar com {prof['nome']}", f"https://wa.me/55{num_limpo}")
+                    else:
+                        st.warning("⚠️ Telefone não cadastrado")
+    else:
+        st.warning("📍 Por favor, autorize o GPS para ver os profissionais próximos.")
 
     /* Título Estilo Joalheria */
     .brand-title {
