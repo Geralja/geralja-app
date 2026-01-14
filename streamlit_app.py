@@ -1,146 +1,198 @@
 # ==============================================================================
-# GERALJÁ 2.0 - REDE SOCIAL COMERCIAL (ESTÁVEL)
+# GERALJÁ 2.0: REDE SOCIAL COMERCIAL DE SERVIÇOS
 # ==============================================================================
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
+import base64
 import json
+import math
 import re
 import time
-import math
-import io
-import base64
 from datetime import datetime
 from PIL import Image
+import io
 
-# ------------------------------------------------------------------------------
-# [FUNÇÃO] INICIALIZAÇÃO DO FIREBASE
-# ------------------------------------------------------------------------------
-if not firebase_admin._apps:
-    try:
-        cred_info = json.loads(st.secrets["textkey"])
-        cred = credentials.Certificate(cred_info)
-        firebase_admin.initialize_app(cred)
-    except Exception as e:
-        st.error(f"Erro nos Secrets: {e}")
-        st.stop()
+# --- TENTA IMPORTAR GPS ---
+try:
+    from streamlit_js_eval import get_geolocation
+except ImportError:
+    pass
 
-db = firestore.client()
-
-# ------------------------------------------------------------------------------
-# [FUNÇÃO] IA MESTRE - PROCESSAMENTO DE IMAGEM E ESTÉTICA
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# 1. MOTOR IA MESTRE (Lógica de Otimização e Estética)
+# ==============================================================================
 class IAMestre:
     @staticmethod
     def otimizar_imagem(file):
+        """Comprime fotos para serem leves e rápidas no feed"""
         if file is None: return None
         try:
             img = Image.open(file)
             if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-            img.thumbnail((700, 700))
+            img.thumbnail((800, 800))
             buffer = io.BytesIO()
             img.save(buffer, format="JPEG", quality=60, optimize=True)
             return base64.b64encode(buffer.getvalue()).decode()
         except: return None
 
     @staticmethod
-    def renderizar_post_social(foto_b64, legenda, nome_prof, data, zap):
-        """Design de Post para o Feed Social"""
+    def limpar_id(texto):
+        return re.sub(r'\D', '', str(texto or ""))
+
+    @staticmethod
+    def calc_distancia(lat1, lon1, lat2, lon2):
+        if not all([lat1, lon1, lat2, lon2]): return 999
+        R = 6371 
+        dLat, dLon = math.radians(lat2-lat1), math.radians(lon2-lon1)
+        a = math.sin(dLat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dLon/2)**2
+        return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+
+    @staticmethod
+    def renderizar_post(foto_b64, legenda, nome_prof, data):
+        """Cria o visual de post de rede social de luxo"""
         st.markdown(f"""
-            <div style="border-radius: 20px; background: white; padding: 15px; margin-bottom: 25px; border: 1px solid #eee; box-shadow: 0px 5px 15px rgba(0,0,0,0.05);">
+            <div style="border-radius: 20px; background: white; padding: 15px; margin-bottom: 25px; box-shadow: 0px 4px 15px rgba(0,0,0,0.08); border: 1px solid #f0f0f0;">
                 <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                    <div style="width: 40px; height: 40px; background: #FFD700; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 12px;">
+                    <div style="width: 45px; height: 45px; background: linear-gradient(45deg, #FFD700, #FFA500); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                         {nome_prof[0].upper()}
                     </div>
                     <div>
-                        <b style="font-size: 16px;">{nome_prof}</b><br>
-                        <small style="color: #888;">{data}</small>
+                        <b style="color: #1E293B; font-size: 16px;">{nome_prof}</b><br>
+                        <small style="color: #94A3B8;">{data}</small>
                     </div>
                 </div>
-                <img src="data:image/jpeg;base64,{foto_b64}" style="width: 100%; border-radius: 15px; max-height: 400px; object-fit: cover;">
-                <p style="margin-top: 15px; color: #333; font-size: 15px;">{legenda}</p>
+                <img src="data:image/jpeg;base64,{foto_b64}" style="width: 100%; border-radius: 15px; object-fit: cover; max-height: 400px;">
+                <p style="margin-top: 12px; color: #334155; font-size: 15px; line-height: 1.5;">{legenda}</p>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 10px;">
+                     <span style="color: #FFD700;">★</span> <small style="color: #64748B;">Destaque GeralJá</small>
+                </div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button(f"Pedir Orçamento: {nome_prof}", key=f"btn_{zap}_{time.time()}"):
-            st.link_button("Abrir WhatsApp", f"https://wa.me/55{zap}")
+
+# ==============================================================================
+# 2. CONFIGURAÇÃO E CONEXÃO FIREBASE
+# ==============================================================================
+st.set_page_config(page_title="GeralJá | Social Business", layout="wide", page_icon="🚀")
+
+if not firebase_admin._apps:
+    try:
+        cred_info = json.loads(st.secrets["textkey"])
+        cred = credentials.Certificate(cred_info)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        st.error("⚠️ Erro nos Secrets do Streamlit!")
+
+db = firestore.client()
+
+# ==============================================================================
+# 3. INTERFACE PRINCIPAL (ABAS)
+# ==============================================================================
+menu = st.tabs(["🔥 FEED & BUSCA", "📢 CADASTRAR", "👤 MEU PERFIL", "⚙️ ADMIN"])
 
 # ------------------------------------------------------------------------------
-# [COMPONENTE] GPS (LOCALIZAÇÃO ÚNICA NA SIDEBAR PARA EVITAR ERRO DE NODE)
+# ABA 1: FEED & BUSCA (A Rede Social)
 # ------------------------------------------------------------------------------
-with st.sidebar:
-    st.title("📍 GeralJá Local")
-    from streamlit_js_eval import get_geolocation
-    loc = get_geolocation()
-    if loc:
-        st.success("Localização capturada!")
-    else:
-        st.info("Aguardando GPS...")
+with menu[0]:
+    st.subheader("📱 Feed de Serviços")
+    loc_cliente = get_geolocation()
+    
+    col_search, col_rad = st.columns([3, 1])
+    termo = col_search.text_input("O que você precisa hoje?", placeholder="Ex: Reforma de banheiro, Pintura...")
+    raio = col_rad.select_slider("Raio de distância (km)", options=[1, 5, 10, 20, 50, 100], value=20)
+
+    # Lógica de exibição de POSTS (O Diferencial Comercial)
+    st.markdown("---")
+    posts_ref = db.collection("postagens").order_by("data", direction=firestore.Query.DESCENDING).limit(20).stream()
+    
+    col_f1, col_f2 = st.columns(2) # Layout em duas colunas estilo Pinterest
+    
+    for i, post in enumerate(posts_ref):
+        p_data = post.to_dict()
+        with (col_f1 if i % 2 == 0 else col_f2):
+            IAMestre.renderizar_post(p_data['foto'], p_data['legenda'], p_data['nome_prof'], p_data['data'])
+            if st.button(f"Pedir Orçamento: {p_data['nome_prof']}", key=f"btn_p_{post.id}"):
+                st.link_button("Ir para WhatsApp", f"https://wa.me/55{p_data['zap_prof']}")
 
 # ------------------------------------------------------------------------------
-# [INTERFACE] ABAS PRINCIPAIS
+# ABA 2: CADASTRAR (Entrada de Novos Usuários)
 # ------------------------------------------------------------------------------
-st.title("🚀 Rede Social GeralJá")
-abas = st.tabs(["🔥 FEED COMERCIAL", "🔍 BUSCAR", "📢 CADASTRAR", "👤 MEU PERFIL"])
+with menu[1]:
+    st.subheader("📢 Torne-se um Profissional de Elite")
+    loc_pro = get_geolocation()
+    
+    with st.form("registro_social"):
+        c1, c2 = st.columns(2)
+        nome_reg = c1.text_input("Nome ou Empresa")
+        zap_reg = c1.text_input("WhatsApp (Login)")
+        area_reg = c2.selectbox("Categoria", ["Eletricista", "Pintor", "Limpeza", "Mecânico", "Obras", "Outros"])
+        pass_reg = c2.text_input("Senha de Acesso", type="password")
+        
+        if st.form_submit_button("🚀 CRIAR MINHA REDE COMERCIAL"):
+            uid = IAMestre.limpar_id(zap_reg)
+            if loc_pro and uid:
+                with st.spinner("IA criando perfil..."):
+                    db.collection("profissionais").document(uid).set({
+                        "nome": nome_reg, "telefone": uid, "area": area_reg, "senha": pass_reg,
+                        "lat": loc_pro['coords']['latitude'], "lon": loc_pro['coords']['longitude'],
+                        "saldo": 10, "cliques": 0
+                    })
+                    st.success("Perfil criado! Agora faça login para postar no Feed.")
+            else:
+                st.error("Ative o GPS para ser encontrado por clientes!")
 
-# --- ABA 1: FEED SOCIAL ---
-with abas[0]:
-    posts = db.collection("postagens").order_by("data", direction=firestore.Query.DESCENDING).limit(10).stream()
-    for p in posts:
-        d = p.to_dict()
-        IAMestre.renderizar_post_social(d['foto'], d['legenda'], d['nome_prof'], d['data'], d['zap_prof'])
-
-# --- ABA 2: BUSCAR (FILTRO GPS) ---
-with abas[1]:
-    st.subheader("Profissionais Perto")
-    if loc:
-        st.write("Filtro por proximidade ativo!")
-        # Lógica de distância aqui
-    else:
-        st.warning("Ative o GPS para filtrar por distância.")
-
-# --- ABA 3: CADASTRAR ---
-with abas[2]:
-    with st.form("cad_pro"):
-        nome = st.text_input("Nome Profissional")
-        zap = st.text_input("WhatsApp (Apenas números)")
-        senha = st.text_input("Senha", type="password")
-        if st.form_submit_button("CRIAR MINHA CONTA"):
-            if loc and nome and zap:
-                uid = re.sub(r'\D', '', zap)
-                db.collection("profissionais").document(uid).set({
-                    "nome": nome, "telefone": uid, "senha": senha,
-                    "lat": loc['coords']['latitude'], "lon": loc['coords']['longitude'], "saldo": 0
-                })
-                st.success("Cadastro Realizado!")
-
-# --- ABA 4: MEU PERFIL (POSTAR NO FEED) ---
-with abas[3]:
+# ------------------------------------------------------------------------------
+# ABA 3: MEU PERFIL (Postagens e Gestão)
+# ------------------------------------------------------------------------------
+with menu[2]:
     if 'auth' not in st.session_state: st.session_state.auth = False
+    
     if not st.session_state.auth:
-        l_zap = st.text_input("WhatsApp")
-        l_pas = st.text_input("Senha", type="password")
-        if st.button("Entrar no Painel"):
-            uid = re.sub(r'\D', '', l_zap)
+        c_log1, c_log2 = st.columns(2)
+        l_zap = c_log1.text_input("WhatsApp", key="login_u")
+        l_pas = c_log1.text_input("Senha", type="password", key="login_p")
+        if c_log1.button("Acessar Painel"):
+            uid = IAMestre.limpar_id(l_zap)
             doc = db.collection("profissionais").document(uid).get()
             if doc.exists and str(doc.to_dict().get('senha')) == l_pas:
-                st.session_state.auth, st.session_state.u_id = True, uid
+                st.session_state.auth = True
+                st.session_state.u_id = uid
                 st.session_state.u_nome = doc.to_dict().get('nome')
                 st.rerun()
     else:
-        st.write(f"### Olá, {st.session_state.u_nome}!")
-        with st.expander("📸 Publicar no Mural Comercial"):
-            f_u = st.file_uploader("Foto do seu serviço", type=['jpg','png','jpeg'])
-            l_u = st.text_area("O que você fez neste serviço?")
-            if st.button("POSTAR NO FEED"):
-                if f_u and l_u:
-                    img_b64 = IAMestre.otimizar_imagem(f_u)
-                    db.collection("postagens").add({
-                        "zap_prof": st.session_state.u_id,
-                        "nome_prof": st.session_state.u_nome,
-                        "foto": img_b64, "legenda": l_u,
-                        "data": datetime.now().strftime("%d/%m/%Y %H:%M")
-                    })
-                    st.success("Postagem realizada com sucesso!")
-        if st.button("Sair"):
+        st.header(f"Bem-vindo, {st.session_state.u_nome}!")
+        
+        # --- FUNÇÃO DE POSTAGEM (REDE SOCIAL) ---
+        with st.container(border=True):
+            st.subheader("📸 Poste um novo Trabalho")
+            nova_foto = st.file_uploader("Foto do Serviço Realizado", type=['jpg', 'jpeg', 'png'])
+            legenda_post = st.text_area("Descreva o que foi feito (ex: Pintura finalizada no centro)")
+            
+            if st.button("🚀 PUBLICAR NO FEED"):
+                if nova_foto and legenda_post:
+                    with st.spinner("IA processando post..."):
+                        img_b64 = IAMestre.otimizar_imagem(nova_foto)
+                        dados_post = {
+                            "zap_prof": st.session_state.u_id,
+                            "nome_prof": st.session_state.u_nome,
+                            "foto": img_b64,
+                            "legenda": legenda_post,
+                            "data": datetime.now().strftime("%d/%m/%Y %H:%M")
+                        }
+                        db.collection("postagens").add(dados_post)
+                        st.success("🔥 Postado com sucesso! Seus clientes já podem ver.")
+                        time.sleep(1)
+                        st.rerun()
+
+        if st.button("🚪 Sair"):
             st.session_state.auth = False
             st.rerun()
+
+# ------------------------------------------------------------------------------
+# ABA 4: ADMIN
+# ------------------------------------------------------------------------------
+with menu[3]:
+    adm_pass = st.text_input("Chave Mestra", type="password")
+    if adm_pass == "admin123":
+        st.write("### Painel Administrativo GeralJá")
+        # Aqui você pode adicionar funções de controle de usuários
