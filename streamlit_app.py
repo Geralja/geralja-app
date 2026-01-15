@@ -1,3 +1,6 @@
+# ==============================================================================
+# GERALJÁ: V2 TURBO - COMUNIDADE + BUSCA IA
+# ==============================================================================
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -6,86 +9,156 @@ import json
 import datetime
 import math
 import re
+import time
+import pandas as pd
 import unicodedata
-from io import BytesIO
+from datetime import datetime
+import pytz
 
-# ==============================================================================
-# 🛡️ 1. CONFIGURAÇÕES E CONSTANTES (O QUE ESTAVA FALTANDO)
-# ==============================================================================
-st.set_page_config(page_title="GeralJá | Plataforma Suprema", layout="wide")
+# Tenta importar bibliotecas extras
+try:
+    from streamlit_js_eval import streamlit_js_eval, get_geolocation
+except ImportError:
+    pass
 
-# Constantes de Elite
-CHAVE_ADMIN = "123" # Sua senha
-BONUS_WELCOME = 50
-CATEGORIAS_OFICIAIS = ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"]
+# ------------------------------------------------------------------------------
+# 1. CONFIGURAÇÃO DE AMBIENTE
+# ------------------------------------------------------------------------------
+st.set_page_config(
+    page_title="GeralJá | Criando Soluções",
+    page_icon="🇧🇷",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# Conexão Firebase
+# --- DESIGN SYSTEM CENTRALIZADO ---
+st.markdown("""
+<style>
+    .block-container { max-width: 900px !important; padding-top: 1rem !important; margin: auto !important; }
+    .stApp { background-color: #f8fafc; }
+    .header-container { 
+        background: white; padding: 30px; border-radius: 0 0 40px 40px; 
+        text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+        border-bottom: 6px solid #FF8C00; margin-bottom: 20px; 
+    }
+    .logo-azul { color: #0047AB; font-weight: 900; font-size: 45px; letter-spacing: -2px; }
+    .logo-laranja { color: #FF8C00; font-weight: 900; font-size: 45px; letter-spacing: -2px; }
+    /* Estilo dos Cards de Notícia */
+    .card-noticia {
+        background: white; padding: 20px; border-radius: 15px;
+        border-left: 6px solid #FF8C00; margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------
+# 2. CONEXÃO FIREBASE (BLINDADA)
+# ------------------------------------------------------------------------------
 if not firebase_admin._apps:
     try:
-        fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
-        firebase_admin.initialize_app(credentials.Certificate(fb_dict))
-    except: pass
+        if "FIREBASE_BASE64" in st.secrets:
+            b64_key = st.secrets["FIREBASE_BASE64"]
+            decoded_json = base64.b64decode(b64_key).decode("utf-8")
+            cred_dict = json.loads(decoded_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+        else:
+            st.error("Erro: FIREBASE_BASE64 não encontrada nas Secrets.")
+    except Exception as e:
+        st.error(f"Erro de conexão: {e}")
+
 db = firestore.client()
 
-# --- FERRAMENTAS TURBO ---
-def converter_img_b64(file):
-    if file:
-        return base64.b64encode(file.read()).decode()
-    return ""
+# --- MOTOR DE INTELIGÊNCIA GERALJÁ ---
+class MotorGeralJa:
+    @staticmethod
+    def normalizar(texto):
+        if not texto: return ""
+        return "".join(c for c in unicodedata.normalize('NFD', str(texto)) if unicodedata.category(c) != 'Mn').lower().strip()
 
-def sanitizar(t):
-    return re.sub(r'<[^>]*?>', '', t).strip() if t else ""
+# ------------------------------------------------------------------------------
+# 3. INTERFACE E ABAS
+# ------------------------------------------------------------------------------
+st.markdown('<div class="header-container"><span class="logo-azul">GERAL</span><span class="logo-laranja">JÁ</span><br><small style="color:#64748B;">ZONA SUR • COMUNIDADE • SERVIÇOS</small></div>', unsafe_allow_html=True)
 
-def enviar_alerta_admin(nome, area, zap):
-    msg = f"Novo Cadastro: {nome} ({area}) - WhatsApp: {zap}"
-    return f"https://wa.me/5511999999999?text={msg}" # Coloque seu zap aqui
+menu_abas = st.tabs(["🔍 BUSCAR", "📻 COMUNIDADE", "🚀 CADASTRAR", "👤 PAINEL", "👑 ADMIN"])
 
-# ==============================================================================
-# 🧠 2. MOTOR DO ARQUITETO
-# ==============================================================================
-def carregar_bloco_dinamico():
-    try:
-        doc = db.collection("configuracoes").document("layout_ia").get()
-        return doc.to_dict().get("codigo_injetado", "") if doc.exists else ""
-    except: return ""
+# --- ABA 1: BUSCAR (Sua Lógica da V1) ---
+with menu_abas[0]:
+    busca_termo = st.text_input("🤖 O que você procura hoje?", placeholder="Ex: Mecânico, Pedreiro, Pizza...")
+    if busca_termo:
+        st.info(f"Buscando por: {busca_termo}...")
+        # Aqui o seu código de busca do Firebase da V1 deve rodar
+        profissionais = db.collection("profissionais").stream()
+        for p in profissionais:
+            dados = p.to_dict()
+            if MotorGeralJa.normalizar(busca_termo) in MotorGeralJa.normalizar(dados.get('nome', '')):
+                st.write(f"✅ {dados.get('nome')}")
 
-def painel_adm_arquiteto():
-    with st.sidebar:
-        st.markdown("### ⚙️ Painel de Controle")
-        with st.expander("🔐 MODO ARQUITETO"):
-            senha = st.text_input("Senha Master", type="password", key="master_pass")
-            if senha == CHAVE_ADMIN:
-                novo_cod = st.text_area("Injetor de Código", height=300, key="inj_area")
-                if st.button("🚀 SOLDAR NO SITE AGORA"):
-                    db.collection("configuracoes").document("layout_ia").set({"codigo_injetado": novo_cod, "data": datetime.datetime.now()})
-                    st.success("Soldado!"); st.rerun()
+# --- ABA 2: COMUNIDADE (O NOVO FEED) ---
+with menu_abas[1]:
+    st.subheader("📻 Mural Grajaú Tem")
+    
+    # Postar Notícia (Admin)
+    if st.session_state.get('user_id') == "11991853488" or st.checkbox("Modo Editor (Teste)"):
+        with st.expander("📝 Nova Postagem"):
+            t = st.text_input("Título")
+            d = st.text_area("Texto curto")
+            l = st.text_input("Link (opcional)")
+            if st.button("Publicar"):
+                db.collection("feed_comunidade").add({"titulo":t, "desc":d, "link":l, "data":datetime.now()})
+                st.success("Postado!")
+                st.rerun()
 
-# ==============================================================================
-# 🏗️ 3. CONSTRUTOR PRINCIPAL
-# ==============================================================================
-def main():
-    st.markdown("""<style>.stApp { background-color: #f0f2f5; } .bloco { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; border: 1px solid #e1e4e8; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }</style>""", unsafe_allow_html=True)
+    # Mostrar Notícias
+    docs = db.collection("feed_comunidade").order_by("data", direction=firestore.Query.DESCENDING).limit(10).stream()
+    for doc in docs:
+        n = doc.to_dict()
+        st.markdown(f"""
+            <div class="card-noticia">
+                <h4 style="color:#0047AB; margin:0;">{n.get('titulo')}</h4>
+                <p style="color:#475569; font-size:14px;">{n.get('desc')}</p>
+                <a href="{n.get('link')}" style="color:#FF8C00; font-weight:bold; text-decoration:none;">VER MAIS →</a>
+            </div>
+        """, unsafe_allow_html=True)
 
-    col_lateral, col_central = st.columns([1, 2.5])
+# --- ABA 3: CADASTRAR (Sua V1) ---
+with menu_abas[2]:
+    st.header("🚀 Cadastro de Profissional")
+    with st.form("cadastro_prof"):
+        nome = st.text_input("Nome da Loja/Profissional")
+        zap = st.text_input("WhatsApp (apenas números)")
+        senha = st.text_input("Crie uma Senha", type="password")
+        if st.form_submit_button("CADASTRAR"):
+            if nome and zap:
+                db.collection("profissionais").document(zap).set({
+                    "nome": nome, "whatsapp": zap, "senha": senha, "saldo": 50
+                })
+                st.success("Cadastrado com sucesso! Ganhou 50 moedas.")
 
-    with col_lateral:
-        st.markdown('<div class="bloco">### 🧭 Navegação</div>', unsafe_allow_html=True)
-        painel_adm_arquiteto()
+# --- ABA 4: PAINEL (Login) ---
+with menu_abas[3]:
+    if 'auth' not in st.session_state: st.session_state.auth = False
+    
+    if not st.session_state.auth:
+        u = st.text_input("WhatsApp")
+        p = st.text_input("Senha", type="password")
+        if st.button("Entrar"):
+            doc = db.collection("profissionais").document(u).get()
+            if doc.exists and doc.to_dict().get('senha') == p:
+                st.session_state.auth = True
+                st.session_state.user_id = u
+                st.rerun()
+    else:
+        st.write(f"Bem-vindo ao seu painel!")
+        if st.button("Sair"):
+            st.session_state.auth = False
+            st.rerun()
 
-    with col_central:
-        # Capa
-        st.markdown('<div style="background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%); border-radius: 15px; padding: 30px; color: white; margin-bottom: 20px;"><h1>GeralJá Turbo 🎯</h1></div>', unsafe_allow_html=True)
-
-        # --- CANTEIRO DE OBRAS (ONDE VOCÊ COLA O CÓDIGO) ---
-        codigo_da_ia = carregar_bloco_dinamico()
-        if codigo_da_ia:
-            try:
-                # O site agora entende CATEGORIAS_OFICIAIS e outras variáveis aqui dentro!
-                exec(codigo_da_ia)
-            except Exception as e:
-                st.error(f"Erro no código injetado: {e}")
-        
-        st.markdown('<div class="bloco">### 💎 Vitrine GeralJá</div>', unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+# --- ABA 5: ADMIN (Sua V1) ---
+with menu_abas[4]:
+    chave = st.text_input("Chave Mestra", type="password")
+    if chave == "suachaveaqui": # Troque pela sua chave
+        st.write("Painel Administrativo Ativo")
+        # Lista profissionais para editar saldo etc.
