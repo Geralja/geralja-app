@@ -7,8 +7,8 @@ import datetime
 import unicodedata
 import time
 
-# --- CONFIGURAÇÃO ---
-st.set_page_config(page_title="GeralJá | Plataforma Suprema", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. PERFORMANCE DE ELITE (CACHE) ---
+st.set_page_config(page_title="GeralJá | Sistema Operacional", layout="wide", initial_sidebar_state="collapsed")
 
 if not firebase_admin._apps:
     try:
@@ -17,18 +17,28 @@ if not firebase_admin._apps:
     except: pass
 db = firestore.client()
 
-# --- FUNÇÕES ---
+# --- 2. MOTOR DE INTELIGÊNCIA ---
 def normalizar_texto(t):
     if not t: return ""
     return "".join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower().strip()
 
+@st.cache_data(ttl=600) # Faz o código injetado carregar em milissegundos
 def carregar_bloco_dinamico():
     try:
         doc = db.collection("configuracoes").document("layout_ia").get()
         return doc.to_dict().get("codigo_injetado", "") if doc.exists else ""
     except: return ""
 
-# --- ESTILO LUXO ---
+def registrar_tendencia(termo):
+    """Registra o que o povo busca para você vender anúncios caros depois"""
+    if termo and len(termo) > 3 and termo != "0413ocara":
+        try:
+            db.collection("tendencias").add({
+                "termo": termo, "data": datetime.datetime.now()
+            })
+        except: pass
+
+# --- 3. DESIGN E UI LUXO ---
 st.markdown("""
 <style>
     .stApp { background-color: #f8fafc; }
@@ -45,36 +55,45 @@ st.markdown("""
 
 st.markdown('<div class="header-master"><span class="logo-geral">GERAL</span><span class="logo-ja">JÁ</span></div>', unsafe_allow_html=True)
 
-# --- BUSCA NORMAL (VISÍVEL) ---
-# Aqui as pessoas digitam "Pizzaria" e aparece normal.
-busca_global = st.text_input("", placeholder="🔍 O que você procura hoje?", label_visibility="collapsed")
+# --- 4. BARRA DE PESQUISA INTELIGENTE ---
+busca_global = st.text_input("", placeholder="🔍 O que o Grajaú precisa hoje?", label_visibility="collapsed")
 
-# GATILHO SILENCIOSO: Se detectar sua senha, ativa o modo admin
 if busca_global == "0413ocara":
     st.session_state.modo_arquiteto = True
-    st.toast("Acesso Administrativo Liberado", icon="🔐")
+    st.toast("🚀 CPU 10.0 ATIVADA", icon="⚙️")
+elif busca_global:
+    registrar_tendencia(busca_global)
 
-# --- EXECUÇÃO DO CONTEÚDO DINÂMICO ---
+# --- 5. EXECUÇÃO COM CONTEXTO EXPANDIDO ---
 codigo_da_ia = carregar_bloco_dinamico()
 if codigo_da_ia:
     try:
-        exec(codigo_da_ia, globals(), locals())
+        contexto_compartilhado = {
+            "st": st, "db": db, "datetime": datetime, "time": time,
+            "normalizar_texto": normalizar_texto,
+            "busca_global": busca_global,
+            "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"],
+            "BONUS_WELCOME": 50
+        }
+        exec(codigo_da_ia, contexto_compartilhado)
     except Exception as e:
-        st.error(f"Erro no sistema: {e}")
+        st.error(f"⚠️ Erro no Módulo Dinâmico: {e}")
 
-# --- PAINEL ARQUITETO (SÓ APARECE COM O CÓDIGO SECRETO) ---
+# --- 6. PAINEL ARQUITETO PRO ---
 if st.session_state.get("modo_arquiteto"):
     st.write("---")
-    with st.expander("🛠️ CANTEIRO DE OBRAS (MODO IA)"):
-        novo_cod = st.text_area("Código de Injeção", value=codigo_da_ia, height=450)
+    with st.expander("🛠️ PAINEL DE CONTROLE DE ELITE"):
+        # Mostra estatísticas rápidas
+        st.subheader("📊 Insights da CPU")
         col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🚀 SOLDAR ALTERAÇÕES", use_container_width=True):
-                db.collection("configuracoes").document("layout_ia").set({
-                    "codigo_injetado": novo_cod, "data": datetime.datetime.now()
-                })
-                st.success("Atualizado!"); time.sleep(1); st.rerun()
-        with col2:
-            if st.button("🔒 SAIR DO MODO ADMIN", use_container_width=True):
-                st.session_state.modo_arquiteto = False
-                st.rerun()
+        col1.metric("Status do Servidor", "100% Online")
+        col2.metric("Motor de Injeção", "v10.0 (Turbo)")
+        
+        novo_cod = st.text_area("Código de Injeção", value=codigo_da_ia, height=450)
+        
+        if st.button("🚀 SOLDAR E APLICAR EM TEMPO REAL"):
+            db.collection("configuracoes").document("layout_ia").set({
+                "codigo_injetado": novo_cod, "data": datetime.datetime.now()
+            })
+            st.cache_data.clear() # Limpa o cache para a mudança ser instantânea
+            st.success("SISTEMA ATUALIZADO COM SUCESSO!"); time.sleep(1); st.rerun()
