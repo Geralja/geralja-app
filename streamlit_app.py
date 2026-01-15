@@ -4,10 +4,21 @@ from firebase_admin import credentials, firestore
 import base64
 import json
 import datetime
-import unicodedata
+import math
+import re
 import time
+import pandas as pd
+import unicodedata
+from datetime import datetime
+import pytz
 
-# --- 1. PERFORMANCE DE ELITE (CACHE) ---
+# --- MOTOR DE GEOLOCALIZAÇÃO (RESGATADO DA V1) ---
+try:
+    from streamlit_js_eval import streamlit_js_eval, get_geolocation
+except ImportError:
+    pass
+
+# --- 1. PERFORMANCE DE ELITE (CACHE) & TIMEZONE ---
 st.set_page_config(page_title="GeralJá | Sistema Operacional", layout="wide", initial_sidebar_state="collapsed")
 
 if not firebase_admin._apps:
@@ -16,13 +27,29 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
     except: pass
 db = firestore.client()
+fuso_horario = pytz.timezone('America/Sao_Paulo')
 
-# --- 2. MOTOR DE INTELIGÊNCIA ---
+# --- 2. MOTOR DE INTELIGÊNCIA (DOUTORADO & BUSCA) ---
 def normalizar_texto(t):
     if not t: return ""
     return "".join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower().strip()
 
-@st.cache_data(ttl=600) # Faz o código injetado carregar em milissegundos
+def doutorado_em_portugues(texto):
+    """Padroniza o português (Ex: 'pizzaria' -> 'Pizzaria')"""
+    if not texto: return ""
+    texto = " ".join(texto.split())
+    return texto.title().strip()
+
+def calcular_distancia_real(lat1, lon1, lat2, lon2):
+    """Matemática da V1 para proximidade"""
+    if not all([lat1, lon1, lat2, lon2]): return 0
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+
+@st.cache_data(ttl=600)
 def carregar_bloco_dinamico():
     try:
         doc = db.collection("configuracoes").document("layout_ia").get()
@@ -30,11 +57,10 @@ def carregar_bloco_dinamico():
     except: return ""
 
 def registrar_tendencia(termo):
-    """Registra o que o povo busca para você vender anúncios caros depois"""
     if termo and len(termo) > 3 and termo != "0413ocara":
         try:
             db.collection("tendencias").add({
-                "termo": termo, "data": datetime.datetime.now()
+                "termo": termo, "data": datetime.now(fuso_horario)
             })
         except: pass
 
@@ -64,16 +90,19 @@ if busca_global == "0413ocara":
 elif busca_global:
     registrar_tendencia(busca_global)
 
-# --- 5. EXECUÇÃO COM CONTEXTO EXPANDIDO ---
+# --- 5. EXECUÇÃO COM CONTEXTO EXPANDIDO (LIMPO E SEM REPETIÇÕES) ---
 codigo_da_ia = carregar_bloco_dinamico()
 if codigo_da_ia:
     try:
         contexto_compartilhado = {
-            "st": st, "db": db, "datetime": datetime, "time": time,
+            "st": st, "db": db, "firestore": firestore,
+            "datetime": datetime, "time": time, "re": re, "math": math, "pd": pd,
             "normalizar_texto": normalizar_texto,
+            "doutorado_em_portugues": doutorado_em_portugues,
+            "calcular_distancia_real": calcular_distancia_real,
             "busca_global": busca_global,
             "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"],
-            "BONUS_WELCOME": 50
+            "CONCEITOS_EXPANDIDOS": {"fome": "Pizzaria", "luz": "Eletricista", "vazamento": "Encanador"}
         }
         exec(codigo_da_ia, contexto_compartilhado)
     except Exception as e:
@@ -83,17 +112,16 @@ if codigo_da_ia:
 if st.session_state.get("modo_arquiteto"):
     st.write("---")
     with st.expander("🛠️ PAINEL DE CONTROLE DE ELITE"):
-        # Mostra estatísticas rápidas
         st.subheader("📊 Insights da CPU")
         col1, col2 = st.columns(2)
         col1.metric("Status do Servidor", "100% Online")
-        col2.metric("Motor de Injeção", "v10.0 (Turbo)")
+        col2.metric("Motor de Injeção", "v10.0 (Doutorado)")
         
         novo_cod = st.text_area("Código de Injeção", value=codigo_da_ia, height=450)
         
         if st.button("🚀 SOLDAR E APLICAR EM TEMPO REAL"):
             db.collection("configuracoes").document("layout_ia").set({
-                "codigo_injetado": novo_cod, "data": datetime.datetime.now()
+                "codigo_injetado": novo_cod, "data": datetime.now(fuso_horario)
             })
-            st.cache_data.clear() # Limpa o cache para a mudança ser instantânea
-            st.success("SISTEMA ATUALIZADO COM SUCESSO!"); time.sleep(1); st.rerun()
+            st.cache_data.clear() 
+            st.success("SISTEMA ATUALIZADO!"); time.sleep(1); st.rerun()
