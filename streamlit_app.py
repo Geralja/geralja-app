@@ -125,9 +125,10 @@ if st.session_state.get("modo_arquiteto"):
             })
             st.cache_data.clear() 
             st.success("SISTEMA ATUALIZADO!"); time.sleep(1); st.rerun()
+            
             # ==============================================================================
-# 🔍 ABA #1: O MOTOR UNIFICADO (V1 + V2) - BUSCA ESTILO GOOGLE
-# ==============================================================================
+            # 🔍 ABA #1: O MOTOR UNIFICADO (V1 + V2) - BUSCA ESTILO GOOGLE
+            # ==============================================================================
 
 with menu[0]:
     # 1. Identificação da Busca
