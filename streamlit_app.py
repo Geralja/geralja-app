@@ -104,9 +104,30 @@ if codigo_da_ia:
             "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"],
             "CONCEITOS_EXPANDIDOS": {"fome": "Pizzaria", "luz": "Eletricista", "vazamento": "Encanador"}
         }
-        exec(codigo_da_ia, contexto_compartilhado)
-    except Exception as e:
-        st.error(f"⚠️ Erro no Módulo Dinâmico: {e}")
+     # --- 5. EXECUÇÃO PROTEGIDA ---
+codigo_da_ia = carregar_bloco_dinamico()
+
+if not codigo_da_ia:
+    # Se o Firebase estiver vazio, ele usa este código básico para o site não sumir
+    codigo_da_ia = """
+abas = st.tabs(["🔍 PESQUISA", "📻 MURAL", "🛠️ BRABOS", "📝 CADASTRO"])
+with abas[0]: st.info("Digite na busca acima para começar.")
+with abas[3]: st.write("Área de cadastro ativa.")
+    """
+
+try:
+    contexto_compartilhado = {
+        "st": st, "db": db, "firestore": firestore,
+        "datetime": datetime, "time": time, "re": re, "math": math, "pd": pd,
+        "normalizar_texto": normalizar_texto,
+        "doutorado_em_portugues": doutorado_em_portugues,
+        "calcular_distancia_real": calcular_distancia_real,
+        "busca_global": busca_global,
+        "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"]
+    }
+    exec(codigo_da_ia, contexto_compartilhado)
+except Exception as e:
+    st.error(f"⚠️ Erro na Solda Dinâmica: {e}")
 
 # --- 6. PAINEL ARQUITETO PRO ---
 if st.session_state.get("modo_arquiteto"):
