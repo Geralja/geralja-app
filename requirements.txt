@@ -1,5 +1,12 @@
 streamlit
 firebase-admin
-streamlit-js-eval
-pandas
+google-cloud-firestore
 pytz
+gTTS
+pandas
+nltk
+fuzzywuzzy
+python-Levenshtein
+streamlit-js-eval==0.1.7
+groq
+Pillow
