@@ -12,7 +12,18 @@ import pandas as pd
 import unicodedata
 from datetime import datetime
 import pytz
+import streamlit as st
+from streamlit_google_auth import Authenticate
 
+# Inicialize a API com suas credenciais do Google Cloud
+auth = Authenticate(
+    client_id = st.secrets["GOOGLE_CLIENT_ID"],
+    client_secret = st.secrets["GOOGLE_CLIENT_SECRET"],
+    redirect_uri = "https://seu-app.streamlit.app", # Mude para localhost:8501 se for teste local
+    cookie_name = "geralja_auth",
+    key = "chave_secreta_cookie",
+    cookie_expiry_days = 30
+)
 # --- MOTOR DE GEOLOCALIZAÇÃO ---
 try:
     from streamlit_js_eval import streamlit_js_eval, get_geolocation
