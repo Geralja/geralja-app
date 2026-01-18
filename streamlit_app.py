@@ -1,38 +1,15 @@
 
+# --- GERALJÁ | TESTADOR DE ELITE (SANDBOX) ---
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import base64
-import json
-import datetime
-import math
-import re
-import time
-import pandas as pd
-import unicodedata
+import base64, json, datetime, math, re, time, pandas as pd, unicodedata, pytz
 from datetime import datetime
-import pytz
-import streamlit as st
-from streamlit_google_auth import Authenticate
 
-# Inicialize a API com suas credenciais do Google Cloud
-auth = Authenticate(
-    client_id = st.secrets["GOOGLE_CLIENT_ID"],
-    client_secret = st.secrets["GOOGLE_CLIENT_SECRET"],
-    redirect_uri = "https://seu-app.streamlit.app", # Mude para localhost:8501 se for teste local
-    cookie_name = "geralja_auth",
-    key = "chave_secreta_cookie",
-    cookie_expiry_days = 30
-)
-# --- MOTOR DE GEOLOCALIZAÇÃO ---
-try:
-    from streamlit_js_eval import streamlit_js_eval, get_geolocation
-except ImportError:
-    pass
+# 1. AMBIENTE DE SIMULAÇÃO
+st.set_page_config(page_title="GeralJá | Laboratório de Testes", layout="wide")
 
-# --- 1. CONFIGURAÇÃO DE ELITE ---
-st.set_page_config(page_title="GeralJá | Sistema Operacional", layout="wide", initial_sidebar_state="collapsed")
-
+# 2. CONEXÃO (Mesma do Principal para garantir paridade)
 if not firebase_admin._apps:
     try:
         fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
@@ -41,7 +18,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 fuso_horario = pytz.timezone('America/Sao_Paulo')
 
-# --- 2. MOTOR DE INTELIGÊNCIA ---
+# 3. FUNÇÕES CORE (Copiadas do Principal para paridade total)
 def normalizar_texto(t):
     if not t: return ""
     return "".join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower().strip()
@@ -50,70 +27,53 @@ def doutorado_em_portugues(texto):
     if not texto: return ""
     return texto.strip().title()
 
-def calcular_distancia_real(lat1, lon1, lat2, lon2):
-    if not all([lat1, lon1, lat2, lon2]): return 0
-    R = 6371
-    dlat, dlon = math.radians(lat2-lat1), math.radians(lon2-lon1)
-    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1-a)))
+# 4. INTERFACE DO LABORATÓRIO
+st.title("🧪 Laboratório GeralJá")
+st.info("O código escrito aqui simula o comportamento do módulo dinâmico do site oficial.")
 
-@st.cache_data(ttl=600)
-def carregar_bloco_dinamico():
-    try:
-        doc = db.collection("configuracoes").document("layout_ia").get()
-        return doc.to_dict().get("codigo_injetado", "") if doc.exists else ""
-    except: return ""
+col_editor, col_preview = st.columns([1, 1])
 
-# --- 3. DESIGN LUXO ---
-st.markdown("""
-<style>
-    .stApp { background-color: #f8fafc; }
-    .header-master { 
-        background: white; padding: 35px; border-radius: 0 0 40px 40px; 
-        text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
-        border-bottom: 8px solid #FF8C00; margin-bottom: 25px; 
+with col_editor:
+    st.subheader("📝 Editor de Código")
+    # Busca o código atual do banco para começar o teste a partir dele
+    doc_atual = db.collection("configuracoes").document("layout_ia").get()
+    codigo_atual = doc_atual.to_dict().get("codigo_injetado", "") if doc_atual.exists else ""
+    
+    # Campo para editar o novo código de teste
+    code_test = st.text_area("Rascunho de Teste", value=codigo_atual, height=500, help="Escreva o código aqui para testar ao lado.")
+    
+    btn_testar = st.button("🔍 EXECUTAR TESTE LOCAL")
+    btn_publicar = st.button("🚀 PUBLICAR NO SITE OFICIAL", type="primary")
+
+with col_preview:
+    st.subheader("📱 Visualização em Tempo Real")
+    st.markdown("---")
+    
+    # Contexto que a Genia definiu para o exec()
+    contexto_compartilhado = {
+        "st": st, "db": db, "firestore": firestore, "datetime": datetime, 
+        "time": time, "math": math, "pd": pd, "normalizar_texto": normalizar_texto,
+        "doutorado_em_portugues": doutorado_em_portugues, "busca_global": "", # Simulado
+        "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"]
     }
-    .logo-geral { color: #0047AB; font-weight: 900; font-size: 48px; letter-spacing: -2px; }
-    .logo-ja { color: #FF8C00; font-weight: 900; font-size: 48px; letter-spacing: -2px; }
-    #MainMenu, footer {visibility: hidden;}
-</style>
-""", unsafe_allow_html=True)
 
-st.markdown('<div class="header-master"><span class="logo-geral">GERAL</span><span class="logo-ja">JÁ</span></div>', unsafe_allow_html=True)
+    if btn_testar or code_test:
+        try:
+            # RODA O CÓDIGO APENAS NESTA COLUNA
+            exec(code_test, contexto_compartilhado)
+        except Exception as e:
+            st.error(f"❌ ERRO NO TESTE: {e}")
 
-# --- 4. BUSCA GLOBAL ---
-busca_global = st.text_input("", placeholder="🔍 O que o Grajaú precisa hoje?", label_visibility="collapsed")
-
-if busca_global == "0413ocara":
-    st.session_state.modo_arquiteto = True
-    st.toast("🚀 CPU 10.0 ATIVADA")
-
-# --- 5. EXECUÇÃO DO CÓDIGO DINÂMICO ---
-codigo_da_ia = carregar_bloco_dinamico()
-
-if not codigo_da_ia:
-    codigo_da_ia = "st.info('Aguardando injeção de código...')"
-
-contexto_compartilhado = {
-    "st": st, "db": db, "firestore": firestore, "datetime": datetime, 
-    "time": time, "math": math, "pd": pd, "normalizar_texto": normalizar_texto,
-    "doutorado_em_portugues": doutorado_em_portugues, "busca_global": busca_global,
-    "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"]
-}
-
-try:
-    exec(codigo_da_ia, contexto_compartilhado)
-except Exception as e:
-    st.error(f"⚠️ Erro no Módulo Dinâmico: {e}")
-
-# --- 6. PAINEL ARQUITETO PRO ---
-if st.session_state.get("modo_arquiteto"):
-    st.write("---")
-    with st.expander("🛠️ PAINEL DE CONTROLE DE ELITE"):
-        novo_cod = st.text_area("Código de Injeção", value=codigo_da_ia, height=450)
-        if st.button("🚀 SOLDAR E APLICAR"):
-            db.collection("configuracoes").document("layout_ia").set({
-                "codigo_injetado": novo_cod, "data": datetime.now(fuso_horario)
-            })
-            st.cache_data.clear()
-            st.success("SISTEMA ATUALIZADO!"); time.sleep(1); st.rerun()
+# 5. LÓGICA DE PUBLICAÇÃO (A SOLDA FINAL)
+if btn_publicar:
+    try:
+        db.collection("configuracoes").document("layout_ia").set({
+            "codigo_injetado": code_test,
+            "data_atualizacao": datetime.now(fuso_horario),
+            "status": "producao"
+        })
+        st.success("✅ CÓDIGO SOLDADO COM SUCESSO NO SITE PRINCIPAL!")
+        st.balloons()
+        time.sleep(2)
+    except Exception as e:
+        st.error(f"Erro ao publicar: {e}")
