@@ -5,6 +5,21 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import base64, json, datetime, math, re, time, pandas as pd, unicodedata, pytz
 from datetime import datetime
+import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# --- CONEXÃO SEGURA COM O COFRE ---
+if not firebase_admin._apps:
+    # Puxa os dados do st.secrets que você acabou de salvar
+    fb_conf = st.secrets["firebase"]
+    
+    # Inicializa o Firebase usando as chaves do cofre
+    # Nota: Para Firestore em Python, o ideal é usar a Service Account (JSON), 
+    # mas se estiver usando via REST ou outra integração, os dados acima ajudam.
+    
+    # Se você for usar o SDK de Admin (recomendado para Firestore), 
+    # o ideal é gerar o JSON na aba "Service Accounts" do Firebase como te falei antes.
 
 # 1. AMBIENTE DE SIMULAÇÃO
 st.set_page_config(page_title="GeralJá | Laboratório de Testes", layout="wide")
