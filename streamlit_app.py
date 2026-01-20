@@ -31,7 +31,7 @@ st.set_page_config(page_title="GeralJá | Laboratório de Testes", layout="wide"
 # 2. CONEXÃO (Mesma do Principal para garantir paridade)
 if not firebase_admin._apps:
     try:
-        fb_dict = json.loads(base64.b64decode(st.secrets["FIREBASE_BASE64"]).decode())
+        fb_dict = json.loads(base64.b64decode(st.secrets["firebase"]).decode())
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
     except: pass
 db = firestore.client()
