@@ -3,11 +3,15 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import base64, json, datetime, math, re, time, pandas as pd, unicodedata, pytz
-from datetime import datetime
-import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
+import base64
+import json
+import math
+import re
+import time
+import pandas as pd
+from datetime import datetime # Único import de data necessário
+import pytz
+from streamlit_js_eval import streamlit_js_eval # Para capturar localização real
 
 # --- CONEXÃO SEGURA COM O COFRE ---
 if not firebase_admin._apps:
