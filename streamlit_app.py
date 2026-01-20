@@ -1,4 +1,3 @@
-
 # --- GERALJÁ | TESTADOR DE ELITE (SANDBOX) ---
 import streamlit as st
 import firebase_admin
@@ -9,35 +8,28 @@ import math
 import re
 import time
 import pandas as pd
-from datetime import datetime # Único import de data necessário
+import unicodedata # Adicionado: estava faltando!
+from datetime import datetime
 import pytz
-from streamlit_js_eval import streamlit_js_eval # Para capturar localização real
-
-# --- CONEXÃO SEGURA COM O COFRE ---
-if not firebase_admin._apps:
-    # Puxa os dados do st.secrets que você acabou de salvar
-    fb_conf = st.secrets["firebase"]
-    
-    # Inicializa o Firebase usando as chaves do cofre
-    # Nota: Para Firestore em Python, o ideal é usar a Service Account (JSON), 
-    # mas se estiver usando via REST ou outra integração, os dados acima ajudam.
-    
-    # Se você for usar o SDK de Admin (recomendado para Firestore), 
-    # o ideal é gerar o JSON na aba "Service Accounts" do Firebase como te falei antes.
 
 # 1. AMBIENTE DE SIMULAÇÃO
-st.set_page_config(page_title="GeralJá | Laboratório de Testes", layout="wide")
+st.set_page_config(page_title="GeralJá | Laboratório de Testes", layout="wide", page_icon="🧪")
 
-# 2. CONEXÃO (Mesma do Principal para garantir paridade)
+# 2. CONEXÃO SEGURA (CORRIGIDA)
 if not firebase_admin._apps:
     try:
-        fb_dict = json.loads(base64.b64decode(st.secrets["firebase"]).decode())
+        # Usando o nome correto da secret que você definiu no seu secrets.toml
+        # Se no arquivo estiver [firebase] base64 = "...", use a linha abaixo:
+        fb_base64 = st.secrets["firebase"]["base64"] 
+        fb_dict = json.loads(base64.b64decode(fb_base64).decode())
         firebase_admin.initialize_app(credentials.Certificate(fb_dict))
-    except: pass
+    except Exception as e:
+        st.error(f"Erro na conexão Firebase: {e}")
+
 db = firestore.client()
 fuso_horario = pytz.timezone('America/Sao_Paulo')
 
-# 3. FUNÇÕES CORE (Copiadas do Principal para paridade total)
+# 3. FUNÇÕES CORE (Sincronizadas)
 def normalizar_texto(t):
     if not t: return ""
     return "".join(c for c in unicodedata.normalize('NFD', str(t)) if unicodedata.category(c) != 'Mn').lower().strip()
@@ -48,42 +40,53 @@ def doutorado_em_portugues(texto):
 
 # 4. INTERFACE DO LABORATÓRIO
 st.title("🧪 Laboratório GeralJá")
-st.info("O código escrito aqui simula o comportamento do módulo dinâmico do site oficial.")
+st.caption("Gênia da Web - Modo Desenvolvedor Ativo")
 
 col_editor, col_preview = st.columns([1, 1])
 
 with col_editor:
     st.subheader("📝 Editor de Código")
-    # Busca o código atual do banco para começar o teste a partir dele
-    doc_atual = db.collection("configuracoes").document("layout_ia").get()
-    codigo_atual = doc_atual.to_dict().get("codigo_injetado", "") if doc_atual.exists else ""
     
-    # Campo para editar o novo código de teste
-    code_test = st.text_area("Rascunho de Teste", value=codigo_atual, height=500, help="Escreva o código aqui para testar ao lado.")
+    # Tenta buscar o código que já está rodando no site oficial
+    try:
+        doc_atual = db.collection("configuracoes").document("layout_ia").get()
+        codigo_atual = doc_atual.to_dict().get("codigo_injetado", "") if doc_atual.exists else ""
+    except:
+        codigo_atual = "# Escreva seu código Python aqui..."
+
+    # Área de edição
+    code_test = st.text_area("Rascunho de Teste", value=codigo_atual, height=500)
     
-    btn_testar = st.button("🔍 EXECUTAR TESTE LOCAL")
-    btn_publicar = st.button("🚀 PUBLICAR NO SITE OFICIAL", type="primary")
+    col_btn1, col_btn2 = st.columns(2)
+    btn_testar = col_btn1.button("🔍 EXECUTAR TESTE LOCAL", use_container_width=True)
+    btn_publicar = col_btn2.button("🚀 PUBLICAR NO SITE", type="primary", use_container_width=True)
 
 with col_preview:
-    st.subheader("📱 Visualização em Tempo Real")
+    st.subheader("📱 Preview")
     st.markdown("---")
     
-    # Contexto que a Genia definiu para o exec()
+    # O contexto que o exec() vai enxergar
     contexto_compartilhado = {
-        "st": st, "db": db, "firestore": firestore, "datetime": datetime, 
-        "time": time, "math": math, "pd": pd, "normalizar_texto": normalizar_texto,
-        "doutorado_em_portugues": doutorado_em_portugues, "busca_global": "", # Simulado
-        "CATEGORIAS_OFICIAIS": ["Pizzaria", "Mecânico", "Eletricista", "Moda", "Beleza", "Outros"]
+        "st": st, 
+        "db": db, 
+        "firestore": firestore, 
+        "datetime": datetime, 
+        "time": time, 
+        "math": math, 
+        "pd": pd, 
+        "normalizar_texto": normalizar_texto,
+        "doutorado_em_portugues": doutorado_em_portugues,
+        "CATEGORIAS_OFICIAIS": ["Pedreiro", "Locutor", "Locutor porta de loja", "Eletricista", "Mecânico"]
     }
 
     if btn_testar or code_test:
         try:
-            # RODA O CÓDIGO APENAS NESTA COLUNA
+            # RODA O CÓDIGO INJETADO
             exec(code_test, contexto_compartilhado)
         except Exception as e:
-            st.error(f"❌ ERRO NO TESTE: {e}")
+            st.error(f"❌ ERRO NO SEU CÓDIGO: {e}")
 
-# 5. LÓGICA DE PUBLICAÇÃO (A SOLDA FINAL)
+# 5. LÓGICA DE PUBLICAÇÃO
 if btn_publicar:
     try:
         db.collection("configuracoes").document("layout_ia").set({
@@ -91,8 +94,7 @@ if btn_publicar:
             "data_atualizacao": datetime.now(fuso_horario),
             "status": "producao"
         })
-        st.success("✅ CÓDIGO SOLDADO COM SUCESSO NO SITE PRINCIPAL!")
         st.balloons()
-        time.sleep(2)
+        st.success("✅ CÓDIGO ENVIADO PARA O SITE OFICIAL!")
     except Exception as e:
         st.error(f"Erro ao publicar: {e}")
